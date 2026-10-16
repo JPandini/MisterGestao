@@ -1,4 +1,4 @@
-code = r'''import React from 'react';
+
 import {
   SafeAreaView,
   ScrollView,
@@ -400,9 +400,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 });
-'''
-path = '/mnt/data/MisterGestaoHome.js'
-with open(path, 'w', encoding='utf-8') as f:
-    f.write(code)
-print(path)
 
