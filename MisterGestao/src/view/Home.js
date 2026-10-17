@@ -10,17 +10,6 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-/**
- * MisterGestaoHome.js
- *
- * Tela visual da página inicial do Mister Gestão.
- * Preparada para receber dados do Firebase: substitua MOCK_DATA por um hook
- * ou listener do Firestore/Realtime Database quando for integrar o backend.
- *
- * Dependência de ícones (Expo):
- * npx expo install @expo/vector-icons
- */
-
 const MOCK_DATA = {
   userName: 'João',
   todaySales: 0,
@@ -145,17 +134,6 @@ export default function MisterGestaoHome() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      <View style={styles.prototypeBar}>
-        <View style={styles.prototypeLeft}>
-          <View style={styles.prototypeDot} />
-          <Text style={styles.prototypeText}>Protótipo · dados fictícios</Text>
-        </View>
-        <View style={styles.offlineStatus}>
-          <MaterialCommunityIcons name="wifi" size={13} color="#687080" />
-          <Text style={styles.prototypeText}>Simular offline</Text>
-        </View>
-      </View>
 
       <Header userName={data.userName} />
 
