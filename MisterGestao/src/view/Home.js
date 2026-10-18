@@ -1,4 +1,3 @@
-
 import {
   SafeAreaView,
   ScrollView,
@@ -10,35 +9,32 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-/**
- * MisterGestaoHome.js
- *
- * Tela visual da página inicial do Mister Gestão.
- * Preparada para receber dados do Firebase: substitua MOCK_DATA por um hook
- * ou listener do Firestore/Realtime Database quando for integrar o backend.
- *
- * Dependência de ícones (Expo):
- * npx expo install @expo/vector-icons
- */
-
+// Dados demonstrativos. Quando Pandini disponibilizar os dados comuns,
+// troque por eles mantendo o mesmo formato. Dinheiro em centavos.
 const MOCK_DATA = {
   userName: 'João',
   todaySales: 0,
   salesCount: 0,
-  receivedToday: 0,
-  pendingPayments: 0,
-  waitingSync: 0,
   products: [
-    { id: '1', name: 'Câmara reforçada Rinaldi', detail: 'R18 · mínimo 3', stock: 3 },
-    { id: '2', name: 'WD-40 Multiuso', detail: '300 ml · mínimo 3', stock: 2 },
+    { id: '1', name: 'Câmara reforçada Rinaldi', detail: 'R18', stock: 3, minimum: 3 },
+    { id: '2', name: 'WD-40 Multiuso', detail: '300 ml', stock: 2, minimum: 3 },
   ],
 };
 
-const formatCurrency = (value) =>
-  Number(value || 0).toLocaleString('pt-BR', {
+// Rotas ainda não confirmadas por Pandini: estes atalhos ficam desativados.
+const SHORTCUTS = [
+  { id: 'orcamento', label: 'Monte um orçamento', icon: 'file-document-edit-outline' },
+  { id: 'salvos', label: 'Orçamentos salvos', icon: 'content-save-outline' },
+  { id: 'produtos', label: 'Produtos', icon: 'cart-outline' },
+];
+
+const formatCurrency = (cents) =>
+  (Number(cents || 0) / 100).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   });
+
+const isLowStock = (item) => item.stock <= item.minimum;
 
 function Header({ userName }) {
   return (
@@ -52,14 +48,6 @@ function Header({ userName }) {
       </View>
 
       <View style={styles.headerActions}>
-        <TouchableOpacity
-          accessibilityLabel="Notificações"
-          style={styles.iconButton}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="bell-outline" size={22} color="#525866" />
-          <View style={styles.notificationDot} />
-        </TouchableOpacity>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {(userName || 'JP').slice(0, 2).toUpperCase()}
@@ -75,21 +63,16 @@ function SalesCard({ data }) {
     <View style={styles.salesCard}>
       <Text style={styles.salesEyebrow}>VENDAS DO DIA · DEMONSTRAÇÃO</Text>
       <Text style={styles.salesAmount}>{formatCurrency(data.todaySales)}</Text>
-      <View style={styles.salesFooter}>
-        <Text style={styles.mutedOnDark}>{data.salesCount} vendas registradas</Text>
-        <Text style={styles.receivedText}>
-          Recebido: {formatCurrency(data.receivedToday)}
-        </Text>
-      </View>
+      <Text style={styles.mutedOnDark}>{data.salesCount} vendas registradas</Text>
     </View>
   );
 }
 
-function ActionCard({ icon, title, description, onPress, accent = false }) {
+function ActionCard({ icon, title, description, accent = false, disabled = false }) {
   return (
     <TouchableOpacity
       style={[styles.actionCard, accent && styles.actionCardAccent]}
-      onPress={onPress}
+      disabled={disabled}
       activeOpacity={0.8}
     >
       <MaterialCommunityIcons
@@ -110,52 +93,43 @@ function ActionCard({ icon, title, description, onPress, accent = false }) {
   );
 }
 
-function MetricCard({ value, label }) {
+function ShortcutTile({ icon, label }) {
   return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
+    <TouchableOpacity style={styles.shortcutTile} disabled activeOpacity={0.8}>
+      <MaterialCommunityIcons name={icon} size={20} color="#F45108" />
+      <Text style={styles.shortcutLabel}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
 function StockItem({ item }) {
-  const isLowStock = item.stock <= 2;
+  const low = isLowStock(item);
 
   return (
-    <TouchableOpacity style={styles.stockItem} activeOpacity={0.75}>
+    <View style={styles.stockItem}>
       <View style={styles.stockIcon}>
         <MaterialCommunityIcons name="package-variant-closed" size={20} color="#B75B20" />
       </View>
       <View style={styles.stockCopy}>
         <Text style={styles.stockName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.stockDetail}>{item.detail}</Text>
+        <Text style={styles.stockDetail}>
+          {item.detail} · mínimo {item.minimum}
+        </Text>
       </View>
-      <Text style={[styles.stockCount, isLowStock && styles.stockCountLow]}>
+      <Text style={[styles.stockCount, low && styles.stockCountLow]}>
         {item.stock}
       </Text>
-    </TouchableOpacity>
+    </View>
   );
 }
 
 export default function MisterGestaoHome() {
-  // Depois, obtenha estes dados do Firebase e mantenha o mesmo formato.
+  // Depois, obtenha estes dados do contexto comum mantendo o mesmo formato.
   const data = MOCK_DATA;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      <View style={styles.prototypeBar}>
-        <View style={styles.prototypeLeft}>
-          <View style={styles.prototypeDot} />
-          <Text style={styles.prototypeText}>Protótipo · dados fictícios</Text>
-        </View>
-        <View style={styles.offlineStatus}>
-          <MaterialCommunityIcons name="wifi" size={13} color="#687080" />
-          <Text style={styles.prototypeText}>Simular offline</Text>
-        </View>
-      </View>
 
       <Header userName={data.userName} />
 
@@ -174,29 +148,22 @@ export default function MisterGestaoHome() {
         <SalesCard data={data} />
 
         <View style={styles.actionsRow}>
-          <ActionCard
-            icon="plus"
-            title="Nova venda"
-            description="Começar venda"
-            accent
-            onPress={() => {}}
-          />
-          <ActionCard
-            icon="barcode-scan"
-            title="Escanear"
-            description="Encontrar produto"
-            onPress={() => {}}
-          />
+          <ActionCard icon="plus" title="Nova venda" description="Começar venda" accent disabled />
+          <ActionCard icon="barcode-scan" title="Escanear" description="Encontrar produto" disabled />
         </View>
 
-        <View style={styles.metricsRow}>
-          <MetricCard value={data.pendingPayments} label="Pagamentos pendentes" />
-          <MetricCard value={data.waitingSync} label="Aguardando sincronização" />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Atalhos</Text>
+        </View>
+        <View style={styles.shortcutsRow}>
+          {SHORTCUTS.map((shortcut) => (
+            <ShortcutTile key={shortcut.id} icon={shortcut.icon} label={shortcut.label} />
+          ))}
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>De olho no estoque</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => {}}>
+          <TouchableOpacity disabled activeOpacity={0.7}>
             <Text style={styles.seeAll}>Ver todos</Text>
           </TouchableOpacity>
         </View>
@@ -207,22 +174,8 @@ export default function MisterGestaoHome() {
           ))}
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Formas de pagamento</Text>
-        </View>
-        <View style={styles.paymentCard}>
-          <View style={styles.paymentIcon}>
-            <MaterialCommunityIcons name="credit-card-outline" size={21} color="#F45108" />
-          </View>
-          <View style={styles.paymentCopy}>
-            <Text style={styles.paymentTitle}>Resumo de pagamentos</Text>
-            <Text style={styles.paymentSubtitle}>Acompanhe os recebimentos do dia</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={21} color="#8B909A" />
-        </View>
-
         <Text style={styles.demoNote}>
-          Os valores exibidos são demonstrativos e ainda não estão conectados ao Firebase.
+          Valores demonstrativos. Atalhos e botões aguardam as rotas e os dados confirmados por Pandini.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -234,23 +187,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  prototypeBar: {
-    height: 25,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-  },
-  prototypeLeft: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  prototypeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#8A8F98',
-  },
-  prototypeText: { color: '#777D87', fontSize: 9 },
-  offlineStatus: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   header: {
     minHeight: 48,
     paddingHorizontal: 14,
@@ -266,22 +202,6 @@ const styles = StyleSheet.create({
   brandGestao: { fontSize: 17, fontWeight: '800', color: '#F45108', letterSpacing: -0.6 },
   subtitle: { fontSize: 9, color: '#7C818A', marginTop: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconButton: {
-    width: 29,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  notificationDot: {
-    position: 'absolute',
-    right: 3,
-    top: 5,
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#F45108',
-  },
   avatar: {
     width: 27,
     height: 27,
@@ -307,15 +227,8 @@ const styles = StyleSheet.create({
   },
   salesEyebrow: { color: '#F2F2F2', fontSize: 8, fontWeight: '600', letterSpacing: 0.15 },
   salesAmount: { color: '#FFFFFF', fontSize: 28, fontWeight: '800', marginTop: 9, letterSpacing: -0.5 },
-  salesFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 7,
-  },
-  mutedOnDark: { color: '#777B81', fontSize: 8 },
-  receivedText: { color: '#F0F0F0', fontSize: 8, fontWeight: '500' },
-  actionsRow: { flexDirection: 'row', gap: 9, marginBottom: 11 },
+  mutedOnDark: { color: '#777B81', fontSize: 8, marginTop: 7 },
+  actionsRow: { flexDirection: 'row', gap: 9, marginBottom: 14 },
   actionCard: {
     flex: 1,
     minWidth: 0,
@@ -333,19 +246,20 @@ const styles = StyleSheet.create({
   actionTitleAccent: { color: '#171717' },
   actionDescription: { color: '#898E97', fontSize: 8 },
   actionDescriptionAccent: { color: '#B93800' },
-  metricsRow: { flexDirection: 'row', gap: 9, marginBottom: 14 },
-  metricCard: {
+  shortcutsRow: { flexDirection: 'row', gap: 9, marginBottom: 16 },
+  shortcutTile: {
     flex: 1,
-    height: 65,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E2E5',
+    minWidth: 0,
+    minHeight: 64,
     borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingTop: 9,
+    borderWidth: 1,
+    borderColor: '#E0E1E4',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    justifyContent: 'space-between',
   },
-  metricValue: { color: '#202126', fontSize: 16, fontWeight: '700' },
-  metricLabel: { color: '#858A93', fontSize: 8, marginTop: 5 },
+  shortcutLabel: { color: '#292A2F', fontSize: 9, fontWeight: '700' },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -377,20 +291,6 @@ const styles = StyleSheet.create({
   stockDetail: { color: '#858A93', fontSize: 8, marginTop: 3 },
   stockCount: { color: '#F45108', fontSize: 15, fontWeight: '800', paddingHorizontal: 2 },
   stockCountLow: { color: '#D9430B' },
-  paymentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E1E4',
-    borderRadius: 10,
-    padding: 11,
-    gap: 10,
-  },
-  paymentIcon: { width: 30, alignItems: 'center' },
-  paymentCopy: { flex: 1 },
-  paymentTitle: { fontSize: 10, color: '#292A2F', fontWeight: '700' },
-  paymentSubtitle: { fontSize: 8, color: '#858A93', marginTop: 3 },
   demoNote: {
     color: '#969AA2',
     fontSize: 8,
@@ -400,4 +300,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 });
-
