@@ -1,5 +1,5 @@
 import LoginScreen from '../view/Login.js';
 
-export default function HomeScreen() {
+export default function Index() {
   return <LoginScreen />;
 }

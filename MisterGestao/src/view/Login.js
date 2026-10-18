@@ -1,31 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert} from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons'; // Certifique-se de ter o @expo/vector-icons instalado
+import { router } from 'expo-router';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Atenção', 'Por favor, preencha o e-mail e a senha.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      setTimeout(() => {
-        Alert.alert('Sucesso', 'Login efetuado com sucesso!');
-        setLoading(false);
-      }, 1500);
-
-    } catch (error) {
-      Alert.alert('Erro no Login', error.message || 'Ocorreu um erro ao entrar.');
-      setLoading(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -92,19 +72,17 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity 
-              style={[styles.button, loading && { opacity: 0.7 }]} 
-              onPress={handleLogin}
-              disabled={loading}
+              style={styles.button}
+              onPress={() => router.replace('/home')}
             >
-              <Text style={styles.buttonText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
+              <Text style={styles.buttonText}>Entrar</Text>
             </TouchableOpacity>
           </View>
 
           {/* Rodapé / Informações */}
           <View style={styles.footer}>
             <Text style={styles.footerHelpText}>
-              Login ilustrativo, sem autenticação real.{'\n'}
-              demo@mistergestao.app · mister123
+              Toque em Entrar para acessar a demonstração.
             </Text>
             <Text style={styles.footerBrand}>
               MisterGestão • Mister MotoPlace
