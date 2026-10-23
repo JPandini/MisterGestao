@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import {
   SafeAreaView,
   ScrollView,
@@ -8,11 +10,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
-// Dados demonstrativos. Quando Pandini disponibilizar os dados comuns,
-// troque por eles mantendo o mesmo formato. Dinheiro em centavos.
 const MOCK_DATA = {
-  userName: 'João',
   todaySales: 0,
   salesCount: 0,
   products: [
@@ -21,11 +21,11 @@ const MOCK_DATA = {
   ],
 };
 
-// Rotas ainda não confirmadas por Pandini: estes atalhos ficam desativados.
+// Atalhos sem rota definida permanecem desativados.
 const SHORTCUTS = [
   { id: 'orcamento', label: 'Monte um orçamento', icon: 'file-document-edit-outline' },
   { id: 'salvos', label: 'Orçamentos salvos', icon: 'content-save-outline' },
-  { id: 'produtos', label: 'Produtos', icon: 'cart-outline' },
+  { id: 'produtos', label: 'Produtos', icon: 'cart-outline', href: '/produtos' },
 ];
 
 const formatCurrency = (cents) =>
@@ -36,7 +36,7 @@ const formatCurrency = (cents) =>
 
 const isLowStock = (item) => item.stock <= item.minimum;
 
-function Header({ userName }) {
+function Header({ userName, onSignOut, isSigningOut }) {
   return (
     <View style={styles.header}>
       <View>
@@ -48,6 +48,15 @@ function Header({ userName }) {
       </View>
 
       <View style={styles.headerActions}>
+        <TouchableOpacity
+          onPress={onSignOut}
+          disabled={isSigningOut}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSigningOut, busy: isSigningOut }}
+          style={styles.signOutButton}
+        >
+          <Text style={styles.signOutText}>{isSigningOut ? 'Saindo...' : 'Sair'}</Text>
+        </TouchableOpacity>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {(userName || 'JP').slice(0, 2).toUpperCase()}
@@ -93,9 +102,14 @@ function ActionCard({ icon, title, description, accent = false, disabled = false
   );
 }
 
-function ShortcutTile({ icon, label }) {
+function ShortcutTile({ icon, label, href }) {
   return (
-    <TouchableOpacity style={styles.shortcutTile} disabled activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.shortcutTile}
+      disabled={!href}
+      onPress={href ? () => router.navigate(href) : undefined}
+      activeOpacity={0.8}
+    >
       <MaterialCommunityIcons name={icon} size={20} color="#F45108" />
       <Text style={styles.shortcutLabel}>{label}</Text>
     </TouchableOpacity>
@@ -126,12 +140,33 @@ function StockItem({ item }) {
 export default function MisterGestaoHome() {
   // Depois, obtenha estes dados do contexto comum mantendo o mesmo formato.
   const data = MOCK_DATA;
+  const { user, logOut } = useAuth();
+  const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
+  const signingOut = useRef(false);
+
+  async function handleSignOut() {
+    if (signingOut.current) return;
+    signingOut.current = true;
+    setIsSigningOut(true);
+    setSignOutError('');
+    try {
+      await logOut();
+    } catch {
+      setSignOutError('Não foi possível sair. Tente novamente.');
+    } finally {
+      signingOut.current = false;
+      setIsSigningOut(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <Header userName={data.userName} />
+      <Header userName={userName} onSignOut={handleSignOut} isSigningOut={isSigningOut} />
+      {signOutError ? <Text style={styles.signOutError} accessibilityRole="alert">{signOutError}</Text> : null}
 
       <ScrollView
         style={styles.scroll}
@@ -141,7 +176,7 @@ export default function MisterGestaoHome() {
         <View style={styles.greeting}>
           <Text style={styles.pageTitle}>Seu dia, em um olhar.</Text>
           <Text style={styles.greetingSubtitle}>
-            Olá, {data.userName}. Vamos atender?
+            Olá, {userName}. Vamos atender?
           </Text>
         </View>
 
@@ -157,7 +192,7 @@ export default function MisterGestaoHome() {
         </View>
         <View style={styles.shortcutsRow}>
           {SHORTCUTS.map((shortcut) => (
-            <ShortcutTile key={shortcut.id} icon={shortcut.icon} label={shortcut.label} />
+            <ShortcutTile key={shortcut.id} icon={shortcut.icon} label={shortcut.label} href={shortcut.href} />
           ))}
         </View>
 
@@ -202,6 +237,9 @@ const styles = StyleSheet.create({
   brandGestao: { fontSize: 17, fontWeight: '800', color: '#F45108', letterSpacing: -0.6 },
   subtitle: { fontSize: 9, color: '#7C818A', marginTop: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  signOutButton: { paddingHorizontal: 10, paddingVertical: 12 },
+  signOutText: { color: '#B93800', fontSize: 13, fontWeight: '600' },
+  signOutError: { color: '#B42318', paddingHorizontal: 14, paddingBottom: 8 },
   avatar: {
     width: 27,
     height: 27,
