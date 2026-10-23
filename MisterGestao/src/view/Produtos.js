@@ -10,10 +10,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
-// Dados demonstrativos (tabela de referência do GUIA_CODEX). Quando Pandini
-// disponibilizar a lista comum de produtos, troque por ela mantendo o formato.
-// Preços em centavos.
 const MOCK_PRODUCTS = [
   { id: '1', name: 'Pneu Borilli EXC Soft (T)', category: 'Pneus', brand: 'Borilli', code: 'PNE-001', measure: '110/100-18', price: 47090, stock: 10, minimum: 3 },
   { id: '2', name: 'Óleo Repsol Smarter Sport 4T', category: 'Óleos', brand: 'Repsol', code: 'OLE-002', measure: '15W50 • 1 litro', price: 5490, stock: 18, minimum: 5 },
@@ -22,14 +20,6 @@ const MOCK_PRODUCTS = [
 ];
 
 const CATEGORIES = ['Pneus', 'Óleos', 'Câmaras'];
-
-// Menu inferior apenas visual; a navegação real fica com Pandini.
-const TABS = [
-  { label: 'Hoje', icon: 'home' },
-  { label: 'Produtos', icon: 'package', active: true },
-  { label: 'Escanear', barcode: true },
-  { label: 'Venda', icon: 'shopping-bag' },
-];
 
 const formatCurrency = (cents) =>
   (Number(cents || 0) / 100).toLocaleString('pt-BR', {
@@ -107,25 +97,19 @@ export default function MisterGestaoProdutos() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <View style={styles.prototypeBar}>
-        <View style={styles.prototypeGroup}>
-          <View style={styles.prototypeDot} />
-          <Text style={styles.prototypeText}>Protótipo · dados fictícios</Text>
-        </View>
-        <View style={styles.prototypeGroup}>
-          <Feather name="wifi" size={14} color="#666D78" />
-          <Text style={styles.prototypeText}>Simular offline</Text>
-        </View>
-      </View>
-
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity
+          onPress={() => router.navigate('/home')}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Mister Gestão, voltar para Home"
+        >
           <Text style={styles.brand}>
             <Text style={styles.brandMister}>Mister </Text>
             <Text style={styles.brandGestao}>Gestão</Text>
           </Text>
           <Text style={styles.brandSubtitle}>Mister MotoPlace</Text>
-        </View>
+        </TouchableOpacity>
         <View style={styles.headerActions}>
           <Feather name="bell" size={24} color="#626975" />
           <View style={styles.avatar}>
@@ -203,23 +187,6 @@ export default function MisterGestaoProdutos() {
         )}
       </ScrollView>
 
-      <View style={styles.tabBar}>
-        {TABS.map((tab) => {
-          const color = tab.active ? '#B83F00' : '#8A93A0';
-          return (
-            <View key={tab.label} style={[styles.tab, tab.active && styles.tabActive]}>
-              <View style={styles.tabIcon}>
-                {tab.barcode ? (
-                  <Barcode color={color} height={19} />
-                ) : (
-                  <Feather name={tab.icon} size={24} color={color} />
-                )}
-              </View>
-              <Text style={[styles.tabLabel, tab.active && styles.tabLabelActive]}>{tab.label}</Text>
-            </View>
-          );
-        })}
-      </View>
     </SafeAreaView>
   );
 }
@@ -375,26 +342,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
   },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EAEBEE',
-    paddingVertical: 8,
-    paddingLeft: 2,
-    paddingRight: 16,
-  },
-  tab: {
-    flex: 1,
-    height: 62,
-    marginHorizontal: 1.5,
-    borderRadius: 10,
-    alignItems: 'center',
-    paddingTop: 5,
-    gap: 6,
-  },
-  tabActive: { backgroundColor: '#FFF3ED' },
-  tabIcon: { height: 26, alignItems: 'center', justifyContent: 'center' },
-  tabLabel: { fontSize: 12, lineHeight: 15, fontWeight: '500', color: '#858B95' },
-  tabLabelActive: { fontWeight: '600', color: '#B83F00' },
 });

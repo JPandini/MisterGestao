@@ -16,7 +16,7 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 
 | Tela | Responsável | Escopo | Situação conhecida |
 | --- | --- | --- | --- |
-| Login | Ferrari → Pandini | Ferrari: visual/validações. Pandini: autenticação, sessão e navegação. | Visual iniciado por Ferrari; Pandini ligou Entrar à Home, sem validação. Autenticação e sessão pendentes. |
+| Login | Ferrari → Pandini | Ferrari: visual/validações. Pandini: autenticação, sessão e navegação. | Visual iniciado por Ferrari; Pandini ligou Entrar à Home, sem validação. Autenticação Firebase e sessão implementadas; teste no aparelho pendente. |
 | Home | Danner | Refatoração, resumo, estoque baixo e atalhos. | Iniciada; precisa de refatoração e integração. |
 | Produtos | Danner | Lista, pesquisa, preço, estoque e seleção para o carrinho. | A fazer. |
 | Cadastro de produto | Ferrari | Formulário, validações e integração com função comum de salvar. | Arquivo inicial existente; implementação pendente. |
@@ -31,7 +31,7 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 ## Decisões pendentes — Pandini
 
 - [x] Definir a primeira etapa: Login apenas navega para Home, sem validar campos ou credenciais.
-- [ ] Decidir o modelo de autenticação da próxima etapa; Firebase ainda não foi instalado/configurado.
+- [x] Configurar Firebase e integrar autenticação por E-mail/senha (console informado como concluído pelo usuário; teste no aparelho pendente). Consulte [FIREBASE.md](FIREBASE.md).
 - [ ] Confirmar menu inferior proposto: Home, Produtos, Orçamentos e Venda.
 - [ ] Combinar quando Ferrari entrega Login.js para Pandini assumir a integração.
 - [ ] Definir os campos/funções comuns necessários às primeiras telas.
@@ -42,8 +42,8 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 - [x] Implementar navegação inicial Login → Home com Expo Router (lint e TypeScript passaram).
 - [ ] Validar no celular: abrir o app, tocar em Entrar com campos vazios e conferir a Home.
 - [ ] Ampliar a navegação conforme as próximas telas, incluindo o menu quando aprovado.
-- [ ] Implementar sessão e controle de acesso às telas internas.
-- [ ] Integrar o Login após a entrega de Ferrari.
+- [x] Implementar sessão e controle de acesso às telas internas existentes (Home e Produtos); validação no aparelho pendente.
+- [x] Integrar o Login ao Firebase, com erros e carregamento; validação no aparelho pendente.
 - [ ] Disponibilizar produtos comuns e operações usadas pelas telas dos colegas.
 - [ ] Disponibilizar carrinho único e suas operações.
 - [ ] Implementar Carrinho e sua rota.
@@ -82,8 +82,8 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 
 ## Navegação proposta
 
-- Implementado: Login → Home ao tocar em Entrar, usando replace. O Login não fica na pilha para voltar após entrar.
-- Pendente: sessão, autenticação e ação de sair que retorna ao Login.
+- Implementado: Login autentica no Firebase; a sessão libera Home e Produtos pelo Stack.Protected.
+- Implementado: ação Sair na Home encerra a sessão e retorna ao Login. Restauração da sessão e histórico aguardam validação no aparelho.
 - Menu principal proposto: Home · Produtos · Orçamentos · Venda.
 - Orçar: Produtos → Carrinho → Detalhe do orçamento → compartilhar.
 - Consultar: Orçamentos salvos → Detalhe do orçamento → converter em venda.
@@ -125,3 +125,12 @@ Não marcar como concluída uma funcionalidade que apenas tem botão, visual ou 
 - Lint e TypeScript passaram sem avisos; git diff --check passou.
 - Validação no celular ainda não registrada. Não há sessão, autenticação ou proteção de rotas nesta entrega.
 - Próxima retomada: validar o fluxo no aparelho e escolher com Pandini o próximo incremento.
+
+## Registro — 22/10/2026 — Autenticação Firebase
+
+- Instalados Firebase 12.10.0 e AsyncStorage 2.2.0; configuração em src/services/.
+- AuthProvider centraliza sessão, entrada e saída; layout protege Home/Produtos e aguarda restauração da sessão.
+- Login agora exige credenciais válidas, mostra carregamento e mensagens de erro. Home oferece Sair e identifica a pessoa autenticada.
+- Lint, TypeScript, verificação das mensagens de erro, bundle Android e git diff --check passaram. O cache do Metro precisou ser renovado para exportar o bundle.
+- Teste com conta real, persistência, saída e acesso direto às rotas no aparelho ainda pendentes. Siga docs/FIREBASE.md.
+- Produtos, estoque e vendas continuam demonstrativos; Firestore não foi integrado.

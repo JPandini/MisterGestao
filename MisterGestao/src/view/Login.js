@@ -1,11 +1,42 @@
-import React, { useState } from 'react';
-import { router } from 'expo-router';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
+import React, { useRef, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getAuthErrorMessage } from '../services/authErrors';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
+  const { signIn } = useAuth();
+
+  async function handleSignIn() {
+    if (submitting.current) return;
+    setError('');
+
+    if (!email.trim() || !password) {
+      setError('Preencha o e-mail e a senha.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Informe um e-mail válido.');
+      return;
+    }
+
+    submitting.current = true;
+    setIsSubmitting(true);
+    try {
+      // O observador de sessão libera a Home somente após autenticar.
+      await signIn(email, password);
+    } catch (signInError) {
+      setError(getAuthErrorMessage(signInError));
+    } finally {
+      submitting.current = false;
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -15,16 +46,12 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           
-          {/* Header Superior (Protótipo / Simular offline) */}
+          {/* Identificação do acesso */}
           <View style={styles.headerTop}>
             <View style={styles.badgeContainer}>
               <View style={styles.dot} />
-              <Text style={styles.badgeText}>Protótipo · dados fictícios</Text>
+              <Text style={styles.badgeText}>Acesso da equipe</Text>
             </View>
-            <TouchableOpacity style={styles.offlineContainer}>
-              <Feather name="wifi-off" size={14} color="#666" style={{ marginRight: 4 }} />
-              <Text style={styles.offlineText}>Simular offline</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Logo / Marca */}
@@ -54,6 +81,8 @@ export default function LoginScreen() {
                 placeholderTextColor="#A0A0A0"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isSubmitting}
                 value={email}
                 onChangeText={setEmail}
               />
@@ -66,23 +95,31 @@ export default function LoginScreen() {
                 placeholder="Sua senha"
                 placeholderTextColor="#A0A0A0"
                 secureTextEntry
+                editable={!isSubmitting}
+                onSubmitEditing={handleSignIn}
+                returnKeyType="go"
                 value={password}
                 onChangeText={setPassword}
               />
             </View>
 
-            <TouchableOpacity 
-              style={styles.button}
-              onPress={() => router.replace('/home')}
+            {error ? <Text style={styles.errorText} accessibilityRole="alert">{error}</Text> : null}
+            <TouchableOpacity
+              style={[styles.button, isSubmitting && styles.buttonDisabled]}
+              onPress={handleSignIn}
+              disabled={isSubmitting}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
             >
-              <Text style={styles.buttonText}>Entrar</Text>
+              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+              <Text style={styles.buttonText}>{isSubmitting ? 'Entrando...' : 'Entrar'}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Rodapé / Informações */}
           <View style={styles.footer}>
             <Text style={styles.footerHelpText}>
-              Toque em Entrar para acessar a demonstração.
+              Use o e-mail e a senha cadastrados para sua equipe.
             </Text>
             <Text style={styles.footerBrand}>
               MisterGestão • Mister MotoPlace
@@ -123,14 +160,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   badgeText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  offlineContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  offlineText: {
     fontSize: 12,
     color: '#666',
   },
@@ -206,12 +235,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
+    flexDirection: 'row',
+    gap: 8,
     shadowColor: '#D35400',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 5,
     elevation: 3,
   },
+  buttonDisabled: { opacity: 0.65 },
+  errorText: { color: '#B42318', fontSize: 13, marginBottom: 8 },
   buttonText: {
     color: '#FFF',
     fontSize: 16,
