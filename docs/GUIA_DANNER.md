@@ -1,3 +1,7 @@
+# Atualização de 25/10/2026
+
+Pandini autorizou migrar para React Navigation e integrar produtos ao Firestore. Esta decisão substitui as instruções históricas de manter mocks ou aguardar integração; veja `Pandini.md`, `TODO.md` e `FIREBASE.md` para o contrato atual. A implementação feita nesta entrega afeta Home e Produtos.
+
 # Guia de desenvolvimento — Danner
 
 Responsável: Danner. Branch de trabalho: danner. Tech lead: Pandini.

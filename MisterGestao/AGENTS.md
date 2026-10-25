@@ -10,24 +10,31 @@ Expo ships breaking changes every SDK release. APIs you remember are likely rena
 
 ## Commands
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+The project uses npm. Use the Expo CLI for Expo-compatible dependency installation.
 
 ```bash
 npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
 npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
+npm run lint                # lint
 npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
 ```
 
-Run lint and typecheck before declaring any task done.
+The app is JavaScript-only; do not add TypeScript files or TypeScript configuration. Run lint before declaring implementation work done.
 
 ## Navigation & Routing
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+- Use **React Navigation** for navigation. `src/app/AppNavigator.js` handles the session and authenticated stack; `src/app/MainTabsNavigator.js` registers Hoje (Home), Produtos, Orçamentos and Venda. Product registration opens above the tabs. This is not an Expo Router routes directory.
+- Screens receive the React Navigation `navigation` prop; never import Expo Router APIs.
+- Navigation docs: https://reactnavigation.org/docs/getting-started/
+
+## Firebase and products
+
+- Reuse the singleton app in `src/services/firebase.js` and auth in `src/services/auth.js` (Metro selects `auth.native.js` on native platforms).
+- Products are in Firestore under `lojas/mister-motoplace/produtos`; shared reads live in `src/context/ProductsContext.js`.
+- Keep product access authenticated: per Pandini's decision, any signed-in account may read and create products, without membership documents or roles. Do not require per-user authorization.
+- Read `../docs/FIREBASE.md` before changing Firestore fields, collection paths or security rules.
+- Do not write passwords, `.env` contents, service account keys or other credentials to chat or tracked files.
 
 ## Building with EAS
 

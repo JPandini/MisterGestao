@@ -1,3 +1,7 @@
+# Atualização de 25/10/2026
+
+Pandini autorizou integrar o cadastro de produtos ao Firestore e converter os arquivos da navegação para JavaScript. Esta decisão substitui as instruções históricas de adiar o Firebase ou aguardar autorização para cadastro; veja `Pandini.md`, `TODO.md` e `FIREBASE.md` para o contrato atual. A implementação feita nesta entrega afeta CadastroProduto.
+
 # Guia de desenvolvimento — Ferrari
 
 Responsável: Ferrari. Branch de trabalho: ferrari. Tech lead: Pandini.

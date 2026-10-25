@@ -2,6 +2,7 @@
 
 Este documento acompanha a divisão combinada por Pandini, Ferrari e Danner. É planejamento, não uma ordem para executar tudo.
 Marque cada item conforme a implementação e as verificações realizadas; validação no aparelho deve ser registrada separadamente.
+Estado atualizado em 25/10/2026: o pedido de Pandini autorizou React Navigation, JavaScript e Firestore para produtos. Essa decisão substitui as antigas pendências de manter dados de produto apenas fictícios e adiar Firebase; consulte `FIREBASE.md`.
 
 ## Guias
 
@@ -17,9 +18,9 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 | Tela | Responsável | Escopo | Situação conhecida |
 | --- | --- | --- | --- |
 | Login | Ferrari → Pandini | Ferrari: visual/validações. Pandini: autenticação, sessão e navegação. | Visual iniciado por Ferrari; Pandini ligou Entrar à Home, sem validação. Autenticação Firebase e sessão implementadas; teste no aparelho pendente. |
-| Home | Danner | Refatoração, resumo, estoque baixo e atalhos. | Iniciada; precisa de refatoração e integração. |
-| Produtos | Danner | Lista, pesquisa, preço, estoque e seleção para o carrinho. | A fazer. |
-| Cadastro de produto | Ferrari | Formulário, validações e integração com função comum de salvar. | Arquivo inicial existente; implementação pendente. |
+| Home | Danner | Refatoração, resumo, estoque baixo e atalhos. | Estoque baixo agora vem do contexto compartilhado do Firestore; resumo de vendas fictício removido. |
+| Produtos | Danner | Lista, pesquisa, preço, estoque e seleção para o carrinho. | Lista, pesquisa e filtros ligados ao Firestore; carrinho segue pendente. |
+| Cadastro de produto | Ferrari | Formulário, validações e integração com função comum de salvar. | Formulário registra produtos no Firestore e a lista compartilhada recebe as alterações. |
 | Orçamentos salvos | Ferrari | Lista, status, estado vazio e abertura do detalhe pelo ID. | A fazer. |
 | Carrinho | Pandini | Itens, quantidades, cliente, desconto, frete, validade e totais. | A fazer. |
 | Detalhe do orçamento | Pandini | Gerar/salvar, visualizar, compartilhar, aprovar, cancelar e converter. | A fazer. |
@@ -32,19 +33,26 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 
 - [x] Definir a primeira etapa: Login apenas navega para Home, sem validar campos ou credenciais.
 - [x] Configurar Firebase e integrar autenticação por E-mail/senha (console informado como concluído pelo usuário; teste no aparelho pendente). Consulte [FIREBASE.md](FIREBASE.md).
-- [ ] Confirmar menu inferior proposto: Home, Produtos, Orçamentos e Venda.
+- [x] Migrar Expo Router para React Navigation e remover arquivos/configuração TypeScript.
+- [x] Compartilhar Header, Button e FormField na pasta de componentes.
+- [x] Conectar o cadastro, a lista e os alertas de estoque ao Firestore; remover os produtos fictícios.
+- [x] Configurar `.env` local e criar o banco `(default)` no Firestore (criação informada pelo usuário).
+- [x] Liberar consulta e cadastro de produtos para qualquer conta logada, sem perfis ou associação de membros.
+- [ ] Publicar as regras atuais de `firestore.rules` no Firebase.
+- [ ] Validar login, cadastro e lista atualizada no app após configurar o Firebase.
+- [x] Implementar menu inferior com Hoje (Home), Produtos, Orçamentos e Venda; as duas últimas mostram aviso de funcionalidade em desenvolvimento.
 - [ ] Combinar quando Ferrari entrega Login.js para Pandini assumir a integração.
 - [ ] Definir os campos/funções comuns necessários às primeiras telas.
 - [ ] Conferir imagens referenciadas pelo app.json e combinar a correção mínima se faltarem.
 
 ## Pandini — base comum e telas principais
 
-- [x] Implementar navegação inicial Login → Home com Expo Router (lint e TypeScript passaram).
+- [x] Migrar para React Navigation mantendo o acesso por sessão.
 - [ ] Validar no celular: abrir o app, tocar em Entrar com campos vazios e conferir a Home.
 - [ ] Ampliar a navegação conforme as próximas telas, incluindo o menu quando aprovado.
 - [x] Implementar sessão e controle de acesso às telas internas existentes (Home e Produtos); validação no aparelho pendente.
 - [x] Integrar o Login ao Firebase, com erros e carregamento; validação no aparelho pendente.
-- [ ] Disponibilizar produtos comuns e operações usadas pelas telas dos colegas.
+- [x] Disponibilizar cadastro e leitura em tempo real de produtos para Home e Produtos.
 - [ ] Disponibilizar carrinho único e suas operações.
 - [ ] Implementar Carrinho e sua rota.
 - [ ] Implementar salvamento e detalhe do orçamento por ID.
@@ -55,7 +63,7 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 - [ ] Implementar Finalizar venda com estoque e proteção contra duplicidade.
 - [ ] Implementar Recibo com os dados da venda salva.
 - [ ] Implementar Scanner após o fluxo manual aprovado.
-- [ ] Planejar persistência local, compartilhamento em imagem e banco em incrementos separados.
+- [ ] Planejar persistência local e compartilhamento em imagem em incrementos separados.
 - [ ] Revisar as entregas e coordenar a integração das branches.
 
 ## Danner — branch danner

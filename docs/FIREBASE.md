@@ -4,17 +4,20 @@ Projeto: mistergestao-5ebe1. Integração pelo Firebase JavaScript SDK, compatí
 
 ## Ambiente local
 
-O arquivo `MisterGestao/.env` contém os seis valores públicos do projeto Firebase e fica ao lado de `package.json`, onde o Expo carrega as variáveis. Ele é ignorado pelo Git. Configure essas mesmas variáveis ao preparar outro ambiente.
+O arquivo `MisterGestao/.env.example` documenta os seis valores públicos do app Firebase. Copie-o para `.env`, preencha os valores em **Configurações do projeto → Seus apps** e não compartilhe nem versione o arquivo preenchido. O `.env` é ignorado pelo Git. O checkout atual não inclui essas configurações locais. Sem as variáveis, o app abre uma tela com a orientação de setup; login e Firestore ficam indisponíveis até preencher o arquivo e reiniciar o Expo.
 
 ## Arquivos
 
-- MisterGestao/src/services/firebase.js: configuração pública via variáveis EXPO_PUBLIC_FIREBASE_* e instância única do app Firebase.
+- MisterGestao/src/services/firebase.js: configuração pública via variáveis EXPO_PUBLIC_FIREBASE_*, instância única do app Firebase e Firestore.
 - MisterGestao/src/services/auth.js: autenticação na web.
 - MisterGestao/src/services/auth.native.js: autenticação Android/iOS com persistência em AsyncStorage.
+- MisterGestao/src/services/products.js: consulta em tempo real e cadastro de produtos no Firestore.
+- MisterGestao/src/context/ProductsContext.js: compartilha produtos entre Home e Produtos.
+- MisterGestao/firestore.rules: leitura/cadastro disponíveis para qualquer conta autenticada no app; outros caminhos ficam fechados.
 
 Para a futura integração, importe auth de src/services/auth (sem extensão). O Metro seleciona auth.native.js no celular. Não inicialize outro Auth nas telas.
 
-A configuração cliente não é uma chave privada. As permissões do banco dependem de regras de segurança; autenticação sozinha não define quem pode acessar cada loja.
+A configuração cliente não é uma chave privada. As permissões do banco dependem de regras de segurança. Por decisão de Pandini, nesta etapa todas as contas autenticadas compartilham a consulta e o cadastro de produtos da loja.
 
 ## Console — etapa manual
 
@@ -27,13 +30,23 @@ Referência: https://firebase.google.com/docs/auth/web/password-auth
 
 ## Estado desta entrega
 
-O Login usa signInWithEmailAndPassword. AuthProvider observa onAuthStateChanged e aguarda restaurar a sessão antes de montar as telas. O layout usa Stack.Protected para permitir index apenas sem sessão e home/produtos apenas com sessão. Após entrar, a navegação libera Home automaticamente; após signOut, remove as telas internas do histórico e retorna ao Login. Ao criar novas rotas internas, inclua-as no bloco protegido do layout.
+O Login usa signInWithEmailAndPassword. AuthProvider observa onAuthStateChanged e aguarda restaurar a sessão antes de montar as telas. React Navigation mostra Login sem sessão e as telas internas após entrar; sair desmonta a navegação autenticada.
 
 O formulário valida campos vazios/e-mail, bloqueia envio duplicado e mostra carregamento e erros em português. A Home identifica a pessoa pelo displayName ou parte inicial do e-mail e oferece Sair, com tratamento de falha. A persistência no aparelho ainda precisa de teste manual. A proteção de telas não substitui regras de acesso no banco.
 
-Próximo incremento: validar o fluxo de autenticação no aparelho. Depois, definir regras e modelo de acesso por loja antes de integrar produtos ao Firestore.
+O cadastro e a listagem de produtos usam Firestore. O ID do documento fica em `id`; preço em centavos inteiros; estoque e mínimo em inteiros não negativos; cada registro também guarda `createdAt` e `createdBy`.
 
-Analytics não foi inicializado: o Firebase JS SDK no React Native não oferece esse serviço. Firestore e Storage não foram integrados nesta etapa.
+## Acesso pelo login e regras
+
+Os produtos da loja são gravados em `lojas/mister-motoplace/produtos`. Qualquer conta autenticada pelo Firebase Authentication pode consultar e cadastrar produtos, sem documento de membro, perfil ou liberação individual do UID. Documentos antigos na coleção `membros`, se existirem, não participam da autorização. Atualização e exclusão permanecem bloqueadas nesta etapa.
+
+As regras de `firestore.rules` exigem sessão autenticada e validam tipos, valores, autor da inclusão e campos permitidos. O campo `createdBy` registra quem cadastrou, sem limitar quem pode consultar outros produtos. Publique-as com `npx firebase-tools deploy --only firestore:rules` na pasta `MisterGestao`, com acesso autorizado ao projeto correto. Também é possível copiar o conteúdo do arquivo para **Firebase Console → Firestore → Regras** e clicar em **Publicar**. Alterar o arquivo local não publica as regras automaticamente.
+
+O `.env` local foi configurado e o usuário informou a criação do banco `(default)`. A publicação anterior das regras pelo CLI foi recusada com erro 403 por falta de `serviceusage.services.use`; confirme a publicação das regras atuais antes de usar o banco. Os mocks antigos foram removidos e não foram importados; a lista começa vazia até existirem documentos reais.
+
+Em caso de permissão negada, confira a sessão e se as regras atuais foram publicadas no projeto correto. Não crie perfis ou associações de membros para resolver esse erro. O app informa que o banco recusou a operação; recarregar a tela tenta novamente a assinatura em tempo real.
+
+Analytics e Storage não são necessários para esta etapa.
 
 Referência Expo: https://docs.expo.dev/guides/using-firebase/
 
@@ -43,7 +56,7 @@ Instalados via Expo CLI: firebase 12.10.0 e @react-native-async-storage/async-st
 
 Verificação local de inicialização: projectId correto e reutilização da instância padrão confirmados, sem operação no banco ou criação de usuário. Lint e TypeScript passaram. Mensagens de credenciais, rede, limite de tentativas e erro desconhecido conferidas. Bundle Android exportado com sucesso (sem bytecode), após renovar o cache do Metro. Teste de login, persistência e aparelho ainda pendentes.
 
-## Teste no aparelho
+## Fluxo a conferir no aparelho
 
 Na pasta MisterGestao (a que contém package.json), execute npx expo start --clear e abra no Expo Go. Não envie senhas para o chat.
 
