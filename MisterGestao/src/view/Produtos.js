@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  SafeAreaView,
+  ActivityIndicator,
   ScrollView,
   View,
   Text,
@@ -10,16 +10,11 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
-
-const MOCK_PRODUCTS = [
-  { id: '1', name: 'Pneu Borilli EXC Soft (T)', category: 'Pneus', brand: 'Borilli', code: 'PNE-001', measure: '110/100-18', price: 47090, stock: 10, minimum: 3 },
-  { id: '2', name: 'Óleo Repsol Smarter Sport 4T', category: 'Óleos', brand: 'Repsol', code: 'OLE-002', measure: '15W50 • 1 litro', price: 5490, stock: 18, minimum: 5 },
-  { id: '3', name: 'Câmara reforçada Rinaldi', category: 'Câmaras', brand: 'Rinaldi', code: 'CAM-003', measure: 'RD18', price: 13678, stock: 3, minimum: 3 },
-  { id: '4', name: 'WD-40 Multiuso', category: 'Óleos', brand: 'WD-40', code: 'OLE-004', measure: '300 ml', price: 5490, stock: 2, minimum: 3 },
-];
-
-const CATEGORIES = ['Pneus', 'Óleos', 'Câmaras'];
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Header from '../components/Header';
+import Button from '../components/Button';
+import { useAuth } from '../context/AuthContext';
+import { useProducts } from '../context/ProductsContext';
 
 const formatCurrency = (cents) =>
   (Number(cents || 0) / 100).toLocaleString('pt-BR', {
@@ -34,7 +29,7 @@ const matchesSearch = (product, query) => {
   if (!term) return true;
 
   return [product.name, product.brand, product.measure, product.code].some((value) =>
-    value.toLowerCase().includes(term)
+    String(value || '').toLowerCase().includes(term)
   );
 };
 
@@ -81,12 +76,18 @@ function ProductCard({ product }) {
   );
 }
 
-export default function MisterGestaoProdutos() {
+export default function MisterGestaoProdutos({ navigation }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState(null);
   const [onlyLowStock, setOnlyLowStock] = useState(false);
+  const { user } = useAuth();
+  const { products: allProducts, isLoading, error, retry } = useProducts();
+  const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
+  const categories = [...new Set(allProducts.map((product) => product.category).filter(Boolean))].sort(
+    (left, right) => left.localeCompare(right, 'pt-BR')
+  );
 
-  const products = MOCK_PRODUCTS.filter(
+  const products = allProducts.filter(
     (product) =>
       matchesSearch(product, query) &&
       (!category || product.category === category) &&
@@ -94,29 +95,10 @@ export default function MisterGestaoProdutos() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.navigate('/home')}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Mister Gestão, voltar para Home"
-        >
-          <Text style={styles.brand}>
-            <Text style={styles.brandMister}>Mister </Text>
-            <Text style={styles.brandGestao}>Gestão</Text>
-          </Text>
-          <Text style={styles.brandSubtitle}>Mister MotoPlace</Text>
-        </TouchableOpacity>
-        <View style={styles.headerActions}>
-          <Feather name="bell" size={24} color="#626975" />
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>JP</Text>
-          </View>
-        </View>
-      </View>
+      <Header userName={userName} />
 
       <ScrollView
         style={styles.scroll}
@@ -124,10 +106,22 @@ export default function MisterGestaoProdutos() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.pageTitle}>Produtos e estoque</Text>
-        <Text style={styles.pageSubtitle}>
-          {MOCK_PRODUCTS.length} produtos · preços de demonstração
-        </Text>
+        <View style={styles.titleRow}>
+          <View style={styles.titleCopy}>
+            <Text style={styles.pageTitle}>Produtos e estoque</Text>
+            <Text style={styles.pageSubtitle}>{allProducts.length} produtos cadastrados</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={() => navigation.navigate('CadastroProduto')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Cadastrar produto"
+          >
+            <Feather name="plus" size={16} color="#FFFFFF" />
+            <Text style={styles.registerButtonText}>Cadastrar</Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.searchLabel}>Buscar produto</Text>
         <TextInput
@@ -140,7 +134,7 @@ export default function MisterGestaoProdutos() {
         />
 
         <View style={styles.chipsRow}>
-          {['Todos', ...CATEGORIES].map((chip) => {
+          {['Todos', ...categories].map((chip) => {
             const selected = chip === category;
             return (
               <TouchableOpacity
@@ -176,14 +170,28 @@ export default function MisterGestaoProdutos() {
           </View>
         </View>
 
-        {products.length > 0 ? (
+        {isLoading ? (
+          <View style={styles.dataState}>
+            <ActivityIndicator color="#C94700" />
+            <Text style={styles.dataStateText}>Carregando produtos...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.dataState}>
+            <Text style={styles.dataError}>{error}</Text>
+            <Button title="Tentar novamente" variant="secondary" onPress={retry} />
+          </View>
+        ) : products.length > 0 ? (
           <View style={styles.productList}>
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyText}>Nenhum produto encontrado.</Text>
+          <Text style={styles.emptyText}>
+            {allProducts.length === 0
+              ? 'Nenhum produto cadastrado ainda.'
+              : 'Nenhum produto encontrado com esses filtros.'}
+          </Text>
         )}
       </ScrollView>
 
@@ -196,45 +204,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  prototypeBar: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingLeft: 3,
-    paddingRight: 22,
+    gap: 10,
   },
-  prototypeGroup: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  prototypeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#8E9299',
-  },
-  prototypeText: { fontSize: 10, lineHeight: 14, color: '#74777D' },
-  header: {
+  titleCopy: { flex: 1, minWidth: 0 },
+  registerButton: {
+    minHeight: 40,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 24,
-    paddingBottom: 14,
-    paddingLeft: 14,
-    paddingRight: 16,
-  },
-  brand: { fontSize: 21, lineHeight: 26, fontWeight: '800', letterSpacing: -0.4 },
-  brandMister: { color: '#151619' },
-  brandGestao: { color: '#C94700' },
-  brandSubtitle: { fontSize: 12, lineHeight: 15, color: '#84878B', marginTop: 5 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  avatar: {
-    width: 33,
-    height: 33,
-    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F7F7F8',
+    gap: 5,
+    paddingHorizontal: 11,
+    borderRadius: 9,
+    backgroundColor: '#C94700',
   },
-  avatarText: { fontSize: 11, fontWeight: '700', color: '#16171A' },
+  registerButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   scroll: { flex: 1, backgroundColor: '#F7F7F8' },
   content: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24 },
   pageTitle: {
@@ -342,4 +329,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
   },
+  dataState: { alignItems: 'center', gap: 12, marginTop: 28 },
+  dataStateText: { color: '#7E8086', fontSize: 13, textAlign: 'center' },
+  dataError: { color: '#B42318', fontSize: 13, textAlign: 'center' },
 });

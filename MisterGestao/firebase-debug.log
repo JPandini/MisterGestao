@@ -1,0 +1,72 @@
+[debug] [2026-10-25T22:18:57.500Z] ----------------------------------------------------------------------
+[debug] [2026-10-25T22:18:57.504Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\pandi\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules --project mistergestao-5ebe1 --non-interactive
+[debug] [2026-10-25T22:18:57.504Z] CLI Version:   15.34.1
+[debug] [2026-10-25T22:18:57.505Z] Platform:      win32
+[debug] [2026-10-25T22:18:57.505Z] Node Version:  v24.17.0
+[debug] [2026-10-25T22:18:57.505Z] Detected Agent: codex_cli
+[debug] [2026-10-25T22:18:57.505Z] Time:          Sun Oct 25 2026 19:18:57 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-10-25T22:18:57.505Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-25T22:18:59.264Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-25T22:18:59.265Z] > authorizing via signed-in user (pandinijoao@gmail.com)
+[debug] [2026-10-25T22:18:59.265Z] [iam] checking project mistergestao-5ebe1 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-10-25T22:18:59.276Z] Checked if tokens are valid: true, expires at: 1792969889537
+[debug] [2026-10-25T22:18:59.276Z] Checked if tokens are valid: true, expires at: 1792969889537
+[debug] [2026-10-25T22:18:59.277Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/mistergestao-5ebe1:testIamPermissions [none]
+[debug] [2026-10-25T22:18:59.277Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/mistergestao-5ebe1:testIamPermissions  x-goog-user-project=mistergestao-5ebe1
+[debug] [2026-10-25T22:18:59.277Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/mistergestao-5ebe1:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-10-25T22:19:00.646Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/mistergestao-5ebe1:testIamPermissions 403
+[debug] [2026-10-25T22:19:00.646Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/mistergestao-5ebe1:testIamPermissions {"error":{"code":403,"message":"Caller does not have required permission to use project mistergestao-5ebe1. Grant the caller the roles/serviceusage.serviceUsageConsumer role, or a custom role with the serviceusage.services.use permission, by visiting https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1 and then retry. Propagation of the new permission may take a few minutes.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"USER_PROJECT_DENIED","domain":"googleapis.com","metadata":{"service":"cloudresourcemanager.googleapis.com","consoleUrl":"https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1","containerInfo":"mistergestao-5ebe1","consumer":"projects/mistergestao-5ebe1"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Caller does not have required permission to use project mistergestao-5ebe1. Grant the caller the roles/serviceusage.serviceUsageConsumer role, or a custom role with the serviceusage.services.use permission, by visiting https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1 and then retry. Propagation of the new permission may take a few minutes."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developer console IAM admin","url":"https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1"}]}]}}
+[debug] [2026-10-25T22:19:00.647Z] [iam] error while checking permissions, command may fail: Request to https://cloudresourcemanager.googleapis.com/v1/projects/mistergestao-5ebe1:testIamPermissions had HTTP Error: 403, Caller does not have required permission to use project mistergestao-5ebe1. Grant the caller the roles/serviceusage.serviceUsageConsumer role, or a custom role with the serviceusage.services.use permission, by visiting https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1 and then retry. Propagation of the new permission may take a few minutes.
+[info] 
+[info] === Deploying to 'mistergestao-5ebe1'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-10-25T22:19:00.649Z] Checked if tokens are valid: true, expires at: 1792969889537
+[debug] [2026-10-25T22:19:00.649Z] Checked if tokens are valid: true, expires at: 1792969889537
+[debug] [2026-10-25T22:19:00.650Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mistergestao-5ebe1/services/firestore.googleapis.com [none]
+[debug] [2026-10-25T22:19:00.650Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mistergestao-5ebe1/services/firestore.googleapis.com  x-goog-user-project=mistergestao-5ebe1
+[debug] [2026-10-25T22:19:01.695Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mistergestao-5ebe1/services/firestore.googleapis.com 403
+[debug] [2026-10-25T22:19:01.695Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mistergestao-5ebe1/services/firestore.googleapis.com [omitted]
+[error] 
+[error] Error: Request to https://serviceusage.googleapis.com/v1/projects/mistergestao-5ebe1/services/firestore.googleapis.com had HTTP Error: 403, Caller does not have required permission to use project mistergestao-5ebe1. Grant the caller the roles/serviceusage.serviceUsageConsumer role, or a custom role with the serviceusage.services.use permission, by visiting https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1 and then retry. Propagation of the new permission may take a few minutes.
+[debug] [2026-10-25T22:19:01.698Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Caller does not have required permission to use project mistergestao-5ebe1. Grant the caller the roles/serviceusage.serviceUsageConsumer role, or a custom role with the serviceusage.services.use permission, by visiting https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1 and then retry. Propagation of the new permission may take a few minutes.",
+      "status": "PERMISSION_DENIED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "USER_PROJECT_DENIED",
+          "domain": "googleapis.com",
+          "metadata": {
+            "containerInfo": "mistergestao-5ebe1",
+            "consumer": "projects/mistergestao-5ebe1",
+            "consoleUrl": "https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1",
+            "service": "serviceusage.googleapis.com"
+          }
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+          "locale": "en-US",
+          "message": "Caller does not have required permission to use project mistergestao-5ebe1. Grant the caller the roles/serviceusage.serviceUsageConsumer role, or a custom role with the serviceusage.services.use permission, by visiting https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1 and then retry. Propagation of the new permission may take a few minutes."
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.Help",
+          "links": [
+            {
+              "description": "Google developer console IAM admin",
+              "url": "https://console.developers.google.com/iam-admin/iam?project=mistergestao-5ebe1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "statusCode": 403
+  }
+}

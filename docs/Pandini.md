@@ -1,7 +1,7 @@
 # Guia de desenvolvimento — Pandini
 
 Responsável: Pandini. Papel: tech lead e desenvolvedor. Branch de referência: main; confirme a branch de trabalho antes de editar.
-Este guia é um plano de pequenas entregas. Não autoriza executar tudo de uma vez.
+Este guia registra o trabalho atual. As decisões registradas em 25/10/2026 substituem as orientações históricas abaixo que mandavam manter Expo Router, TypeScript ou dados de produtos apenas fictícios.
 
 ## 1. Leitura e organização
 
@@ -33,9 +33,12 @@ Você assume a maioria das telas e as partes com mais regras ou integração:
 
 ## 3. Decisões antes da implementação
 
+- Decisão de 25/10/2026: migrar para React Navigation, manter somente JavaScript, compartilhar componentes em `src/components/` e cadastrar/listar produtos no Firestore.
+- Modelo desta etapa: estoque compartilhado da Mister MotoPlace em `lojas/mister-motoplace/produtos`. Qualquer conta logada pode consultar e cadastrar, sem perfis ou liberação individual. Leia `FIREBASE.md` para publicar as regras.
+- O `.env` local foi configurado e o banco `(default)` foi criado pelo usuário. Ainda é necessário publicar as regras atuais de `firestore.rules`.
 - Primeira etapa definida: Login navega diretamente para Home, sem validação. Definir autenticação em uma etapa futura; não instalar/configurar Firebase automaticamente.
 - Dados de produtos, orçamentos e vendas continuam fictícios nesta fase, salvo nova decisão explícita.
-- Confirmar o menu proposto: Home, Produtos, Orçamentos e Venda. Login fora do menu; demais telas abertas por ações.
+- Menu inferior implementado: Hoje (Home), Produtos, Orçamentos e Venda. Login fora do menu; cadastro de produto abre sobre as abas. Orçamentos e Venda ainda mostram aviso de funcionalidade em desenvolvimento.
 - Combinar com Ferrari quando você assume Login.js, evitando edições simultâneas.
 - Combinar com o time os campos e as funções comuns antes de integrar as views.
 - Conferir as imagens referenciadas por app.json antes de rodar o app. Se faltarem, combinar a correção mínima.

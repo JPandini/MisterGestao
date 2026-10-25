@@ -3,18 +3,20 @@ import { getAuth, getReactNativePersistence, initializeAuth } from 'firebase/aut
 
 import { app } from './firebase';
 
-let auth;
+let auth = null;
 
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch (error) {
-  // O Fast Refresh pode reencontrar uma instância já inicializada.
-  if (error.code !== 'auth/already-initialized') {
-    throw error;
+if (app) {
+  try {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (error) {
+    // O Fast Refresh pode reencontrar uma instância já inicializada.
+    if (error.code !== 'auth/already-initialized') {
+      throw error;
+    }
+    auth = getAuth(app);
   }
-  auth = getAuth(app);
 }
 
 export { auth };

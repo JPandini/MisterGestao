@@ -1,7 +1,10 @@
 import { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useProducts } from '../context/ProductsContext';
+import Header from '../components/Header';
+import Button from '../components/Button';
 import {
-  SafeAreaView,
+  ActivityIndicator,
   ScrollView,
   View,
   Text,
@@ -10,69 +13,21 @@ import {
   StyleSheet,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const MOCK_DATA = {
-  todaySales: 0,
-  salesCount: 0,
-  products: [
-    { id: '1', name: 'Câmara reforçada Rinaldi', detail: 'R18', stock: 3, minimum: 3 },
-    { id: '2', name: 'WD-40 Multiuso', detail: '300 ml', stock: 2, minimum: 3 },
-  ],
-};
-
-// Atalhos sem rota definida permanecem desativados.
 const SHORTCUTS = [
-  { id: 'orcamento', label: 'Monte um orçamento', icon: 'file-document-edit-outline' },
-  { id: 'salvos', label: 'Orçamentos salvos', icon: 'content-save-outline' },
-  { id: 'produtos', label: 'Produtos', icon: 'cart-outline', href: '/produtos' },
+  { id: 'cadastro', label: 'Cadastrar produto', icon: 'plus-box-outline', screen: 'CadastroProduto' },
+  { id: 'produtos', label: 'Produtos e estoque', icon: 'cart-outline', screen: 'Produtos' },
 ];
-
-const formatCurrency = (cents) =>
-  (Number(cents || 0) / 100).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
 
 const isLowStock = (item) => item.stock <= item.minimum;
 
-function Header({ userName, onSignOut, isSigningOut }) {
-  return (
-    <View style={styles.header}>
-      <View>
-        <View style={styles.brandLine}>
-          <Text style={styles.brandMister}>Mister</Text>
-          <Text style={styles.brandGestao}>Gestão</Text>
-        </View>
-        <Text style={styles.subtitle}>Mister MotoPlace</Text>
-      </View>
-
-      <View style={styles.headerActions}>
-        <TouchableOpacity
-          onPress={onSignOut}
-          disabled={isSigningOut}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isSigningOut, busy: isSigningOut }}
-          style={styles.signOutButton}
-        >
-          <Text style={styles.signOutText}>{isSigningOut ? 'Saindo...' : 'Sair'}</Text>
-        </TouchableOpacity>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {(userName || 'JP').slice(0, 2).toUpperCase()}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function SalesCard({ data }) {
+function SalesCard() {
   return (
     <View style={styles.salesCard}>
-      <Text style={styles.salesEyebrow}>VENDAS DO DIA · DEMONSTRAÇÃO</Text>
-      <Text style={styles.salesAmount}>{formatCurrency(data.todaySales)}</Text>
-      <Text style={styles.mutedOnDark}>{data.salesCount} vendas registradas</Text>
+      <Text style={styles.salesEyebrow}>VENDAS</Text>
+      <Text style={styles.salesAmount}>Resumo indisponível</Text>
+      <Text style={styles.mutedOnDark}>O cadastro de vendas ainda não está disponível.</Text>
     </View>
   );
 }
@@ -102,12 +57,11 @@ function ActionCard({ icon, title, description, accent = false, disabled = false
   );
 }
 
-function ShortcutTile({ icon, label, href }) {
+function ShortcutTile({ icon, label, screen, navigation }) {
   return (
     <TouchableOpacity
       style={styles.shortcutTile}
-      disabled={!href}
-      onPress={href ? () => router.navigate(href) : undefined}
+      onPress={() => navigation.navigate(screen)}
       activeOpacity={0.8}
     >
       <MaterialCommunityIcons name={icon} size={20} color="#F45108" />
@@ -137,10 +91,10 @@ function StockItem({ item }) {
   );
 }
 
-export default function MisterGestaoHome() {
-  // Depois, obtenha estes dados do contexto comum mantendo o mesmo formato.
-  const data = MOCK_DATA;
+export default function MisterGestaoHome({ navigation }) {
   const { user, logOut } = useAuth();
+  const { products, isLoading: isProductsLoading, error: productsError, retry } = useProducts();
+  const lowStockProducts = products.filter(isLowStock).slice(0, 4);
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
@@ -162,10 +116,14 @@ export default function MisterGestaoHome() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <Header userName={userName} onSignOut={handleSignOut} isSigningOut={isSigningOut} />
+      <Header
+        userName={userName}
+        onSignOut={handleSignOut}
+        isSigningOut={isSigningOut}
+      />
       {signOutError ? <Text style={styles.signOutError} accessibilityRole="alert">{signOutError}</Text> : null}
 
       <ScrollView
@@ -180,7 +138,7 @@ export default function MisterGestaoHome() {
           </Text>
         </View>
 
-        <SalesCard data={data} />
+        <SalesCard />
 
         <View style={styles.actionsRow}>
           <ActionCard icon="plus" title="Nova venda" description="Começar venda" accent disabled />
@@ -192,26 +150,46 @@ export default function MisterGestaoHome() {
         </View>
         <View style={styles.shortcutsRow}>
           {SHORTCUTS.map((shortcut) => (
-            <ShortcutTile key={shortcut.id} icon={shortcut.icon} label={shortcut.label} href={shortcut.href} />
+            <ShortcutTile
+              key={shortcut.id}
+              icon={shortcut.icon}
+              label={shortcut.label}
+              screen={shortcut.screen}
+              navigation={navigation}
+            />
           ))}
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>De olho no estoque</Text>
-          <TouchableOpacity disabled activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => navigation.navigate('Produtos')} activeOpacity={0.7}>
             <Text style={styles.seeAll}>Ver todos</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.stockList}>
-          {data.products.map((item) => (
-            <StockItem key={item.id} item={item} />
-          ))}
-        </View>
-
-        <Text style={styles.demoNote}>
-          Valores demonstrativos. Atalhos e botões aguardam as rotas e os dados confirmados por Pandini.
-        </Text>
+        {isProductsLoading ? (
+          <View style={styles.dataState}>
+            <ActivityIndicator color="#C94700" />
+            <Text style={styles.dataStateText}>Carregando produtos...</Text>
+          </View>
+        ) : productsError ? (
+          <View style={styles.dataState}>
+            <Text style={styles.dataError}>{productsError}</Text>
+            <Button title="Tentar novamente" variant="secondary" onPress={retry} />
+          </View>
+        ) : lowStockProducts.length > 0 ? (
+          <View style={styles.stockList}>
+            {lowStockProducts.map((item) => (
+              <StockItem key={item.id} item={{ ...item, detail: item.measure || 'Sem medida' }} />
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.dataStateText}>
+            {products.length === 0
+              ? 'Nenhum produto cadastrado ainda.'
+              : 'Nenhum produto com estoque baixo.'}
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -222,33 +200,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  header: {
-    minHeight: 48,
-    paddingHorizontal: 14,
-    paddingTop: 4,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-  },
-  brandLine: { flexDirection: 'row', alignItems: 'baseline' },
-  brandMister: { fontSize: 17, fontWeight: '800', color: '#18191C', letterSpacing: -0.6 },
-  brandGestao: { fontSize: 17, fontWeight: '800', color: '#F45108', letterSpacing: -0.6 },
-  subtitle: { fontSize: 9, color: '#7C818A', marginTop: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  signOutButton: { paddingHorizontal: 10, paddingVertical: 12 },
-  signOutText: { color: '#B93800', fontSize: 13, fontWeight: '600' },
   signOutError: { color: '#B42318', paddingHorizontal: 14, paddingBottom: 8 },
-  avatar: {
-    width: 27,
-    height: 27,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F1F3',
-  },
-  avatarText: { fontSize: 9, fontWeight: '700', color: '#5B606A' },
   scroll: { flex: 1, backgroundColor: '#F6F6F7' },
   content: { paddingHorizontal: 14, paddingTop: 15, paddingBottom: 28 },
   greeting: { marginBottom: 12 },
@@ -329,12 +281,7 @@ const styles = StyleSheet.create({
   stockDetail: { color: '#858A93', fontSize: 8, marginTop: 3 },
   stockCount: { color: '#F45108', fontSize: 15, fontWeight: '800', paddingHorizontal: 2 },
   stockCountLow: { color: '#D9430B' },
-  demoNote: {
-    color: '#969AA2',
-    fontSize: 8,
-    lineHeight: 12,
-    textAlign: 'center',
-    marginTop: 16,
-    paddingHorizontal: 10,
-  },
+  dataState: { alignItems: 'center', gap: 10, marginVertical: 14 },
+  dataStateText: { color: '#858A93', fontSize: 11, textAlign: 'center', marginVertical: 12 },
+  dataError: { color: '#B42318', fontSize: 12, textAlign: 'center' },
 });

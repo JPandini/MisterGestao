@@ -2,6 +2,8 @@
 
 Preparado em 16/10/2026 para João Vitor Pandini.
 
+**Atualização:** este roteiro é uma referência histórica. Em 25/10/2026, Pandini autorizou substituir Expo Router por React Navigation, usar somente JavaScript, criar componentes reutilizáveis e conectar o cadastro/lista de produtos ao Cloud Firestore. Para o estado atual e as etapas pendentes, siga `Pandini.md`, `TODO.md` e `FIREBASE.md`; quando este documento divergir, prevalecem essas decisões recentes.
+
 **Regra principal: código muito simples, dados mockados agora, uma tela por vez e um arquivo por confirmação. Firebase somente em uma etapa futura autorizada.**
 
 ## 1. Como começar
