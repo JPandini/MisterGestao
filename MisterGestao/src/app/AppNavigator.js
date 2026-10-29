@@ -5,10 +5,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { isFirebaseConfigured } from '../services/firebase';
 import { ProductsProvider } from '../context/ProductsContext';
+import { CartProvider } from '../context/CartContext';
 import FirebaseSetupScreen from '../components/FirebaseSetupScreen';
 import LoginScreen from '../view/Login';
 import MainTabsNavigator from './MainTabsNavigator';
 import RegisterProductScreen from '../view/CadastroProduto';
+import CartScreen from '../view/Carrinho';
 
 const Stack = createNativeStackNavigator();
 
@@ -24,10 +26,13 @@ function LoadingScreen() {
 function AuthenticatedNavigator() {
   return (
     <ProductsProvider>
-      <Stack.Navigator id="AuthenticatedStack" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="MainTabs" component={MainTabsNavigator} />
-        <Stack.Screen name="CadastroProduto" component={RegisterProductScreen} />
-      </Stack.Navigator>
+      <CartProvider>
+        <Stack.Navigator id="AuthenticatedStack" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="MainTabs" component={MainTabsNavigator} />
+          <Stack.Screen name="CadastroProduto" component={RegisterProductScreen} />
+          <Stack.Screen name="Carrinho" component={CartScreen} />
+        </Stack.Navigator>
+      </CartProvider>
     </ProductsProvider>
   );
 }

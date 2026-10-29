@@ -15,6 +15,7 @@ import Header from '../components/Header';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
+import { useCart } from '../context/CartContext';
 
 const formatCurrency = (cents) =>
   (Number(cents || 0) / 100).toLocaleString('pt-BR', {
@@ -43,7 +44,7 @@ function Barcode({ color, height }) {
   );
 }
 
-function ProductCard({ product }) {
+function ProductCard({ product, onAdd }) {
   const stockLabel = isLowStock(product) ? 'Estoque baixo' : 'Em estoque';
 
   return (
@@ -66,8 +67,7 @@ function ProductCard({ product }) {
         <Text style={styles.stockText}>
           {stockLabel} · {product.stock} un.
         </Text>
-        {/* Aguarda o carrinho comum de Pandini. */}
-        <TouchableOpacity style={styles.addButton} disabled activeOpacity={0.7}>
+        <TouchableOpacity style={styles.addButton} onPress={() => onAdd(product)} activeOpacity={0.7}>
           <Feather name="plus" size={20} color="#C94700" />
           <Text style={styles.addText}>Adicionar</Text>
         </TouchableOpacity>
@@ -82,6 +82,7 @@ export default function MisterGestaoProdutos({ navigation }) {
   const [onlyLowStock, setOnlyLowStock] = useState(false);
   const { user } = useAuth();
   const { products: allProducts, isLoading, error, retry } = useProducts();
+  const { totalItens, adicionar } = useCart();
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
   const categories = [...new Set(allProducts.map((product) => product.category).filter(Boolean))].sort(
     (left, right) => left.localeCompare(right, 'pt-BR')
@@ -111,6 +112,14 @@ export default function MisterGestaoProdutos({ navigation }) {
             <Text style={styles.pageTitle}>Produtos e estoque</Text>
             <Text style={styles.pageSubtitle}>{allProducts.length} produtos cadastrados</Text>
           </View>
+          <TouchableOpacity
+            style={styles.cartButton}
+            onPress={() => navigation.navigate('Carrinho')}
+            activeOpacity={0.8}
+          >
+            <Feather name="shopping-cart" size={18} color="#C94700" />
+            {totalItens > 0 ? <Text style={styles.cartCount}>{totalItens}</Text> : null}
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.registerButton}
             onPress={() => navigation.navigate('CadastroProduto')}
@@ -183,7 +192,7 @@ export default function MisterGestaoProdutos({ navigation }) {
         ) : products.length > 0 ? (
           <View style={styles.productList}>
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} onAdd={adicionar} />
             ))}
           </View>
         ) : (
@@ -222,6 +231,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#C94700',
   },
   registerButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  cartButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    borderRadius: 9,
+    backgroundColor: '#FFF3ED',
+  },
+  cartCount: { color: '#C94700', fontSize: 13, fontWeight: '700' },
   scroll: { flex: 1, backgroundColor: '#F7F7F8' },
   content: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24 },
   pageTitle: {
