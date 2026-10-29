@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopColor: '#E9EAED',
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 6,
+    paddingTop: 0,
     elevation: 0,
     shadowOpacity: 0,
   },
