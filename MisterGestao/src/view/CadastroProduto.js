@@ -79,6 +79,10 @@ export default function CadastroProdutoScreen({ navigation }) {
 
   const updateField = (field) => (value) => {
     setForm((current) => ({ ...current, [field]: value }));
+
+    if (field === 'lucro'){
+      setForm((current) => ({...current, price : String(parseInt(value) * parseInt(['lucro']))}))
+    }
   };
 
   const handleSave = async () => {
@@ -172,6 +176,7 @@ export default function CadastroProdutoScreen({ navigation }) {
 
           <FormField
             label="Categoria"
+            optional
             placeholder="Ex.: Câmaras"
             value={form.category}
             onChangeText={updateField('category')}
@@ -180,6 +185,7 @@ export default function CadastroProdutoScreen({ navigation }) {
 
           <FormField
             label="Marca"
+            optional
             placeholder="Ex.: Rinaldi"
             value={form.brand}
             onChangeText={updateField('brand')}
@@ -188,11 +194,35 @@ export default function CadastroProdutoScreen({ navigation }) {
 
           <FormField
             label="Medida"
+            optional
             placeholder="Ex.: RD18 ou 300 ml"
             value={form.measure}
             onChangeText={updateField('measure')}
             editable={!isSaving}
           />
+
+          <View style={styles.row}>
+            <View style={styles.rowItem}>
+              <FormField
+                label="Valor de compra (R$)"
+                placeholder="54,90"
+                keyboardType="decimal-pad"
+                value={String(form.value ?? '')}
+                onChangeText={updateField('value')}
+                editable={!isSaving}
+              />
+            </View>
+            <View style={styles.rowItem}>
+              <FormField
+                label="Margem de lucro"
+                placeholder="30%"
+                keyboardType="decimal-pad"
+                value={String(form.lucro ?? '')}
+                onChangeText={updateField('lucro')}
+                editable={!isSaving}
+              />
+            </View>
+          </View>
 
           <FormField
             label="Preço (R$)"

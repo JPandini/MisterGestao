@@ -9,7 +9,7 @@ import UpcomingScreen from '../view/EmDesenvolvimento';
 
 const Tab = createBottomTabNavigator();
 
-const TAB_ICONS = {
+const icons = {
   Home: 'home-outline',
   Produtos: 'package-variant-closed',
   Orcamentos: 'clipboard-text-outline',
@@ -36,7 +36,7 @@ export default function MainTabsNavigator() {
         ],
         tabBarIcon: ({ color, focused }) => (
           <View style={[styles.icon, focused && styles.activeIcon]}>
-            <MaterialCommunityIcons name={TAB_ICONS[route.name]} size={22} color={color} />
+            <MaterialCommunityIcons name={icons[route.name]} size={22} color={color} />
           </View>
         ),
       })}

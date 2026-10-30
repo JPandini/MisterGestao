@@ -28,7 +28,7 @@ export default function LoginScreen() {
     submitting.current = true;
     setIsSubmitting(true);
     try {
-      // O observador de sessão libera a Home somente após autenticar.
+      // O observador de sessão libera a Home somente aps autenticar
       await signIn(email, password);
     } catch (signInError) {
       setError(getAuthErrorMessage(signInError));

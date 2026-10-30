@@ -66,7 +66,6 @@ function ProductCard({ product }) {
         <Text style={styles.stockText}>
           {stockLabel} · {product.stock} un.
         </Text>
-        {/* Aguarda o carrinho comum de Pandini. */}
         <TouchableOpacity style={styles.addButton} disabled activeOpacity={0.7}>
           <Feather name="plus" size={20} color="#C94700" />
           <Text style={styles.addText}>Adicionar</Text>
