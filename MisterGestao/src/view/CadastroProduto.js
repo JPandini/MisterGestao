@@ -23,6 +23,8 @@ const EMPTY_FORM = {
   category: '',
   brand: '',
   measure: '',
+  value: '',
+  lucro: '',
   price: '',
   stock: '',
   minimum: '',
@@ -78,13 +80,22 @@ export default function CadastroProdutoScreen({ navigation }) {
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
 
   const updateField = (field) => (value) => {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
 
-    if (field === 'lucro'){
-      setForm((current) => ({...current, price : String(parseInt(value) * parseInt(['lucro']))}))
-    }
+      if (field === 'lucro' || field === 'value') {
+        const custo = parsePriceToCents(next.value);
+        const lucro = parseFloat(next.lucro.replace(',', '.'));
+
+        if (custo !== null && !isNaN(lucro) && lucro >= 0) {
+          next.price = ((custo / 100) * (1 + lucro / 100))
+            .toFixed(2)
+            .replace('.', ',');
+        }
+      }
+      return next;
+    });
   };
-
   const handleSave = async () => {
     if (saving.current) return;
 
