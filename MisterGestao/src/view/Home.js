@@ -18,6 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const SHORTCUTS = [
   { id: 'cadastro', label: 'Cadastrar produto', icon: 'plus-box-outline', screen: 'CadastroProduto' },
   { id: 'produtos', label: 'Produtos e estoque', icon: 'cart-outline', screen: 'Produtos' },
+  { id: 'marcas', label: 'Cadastrar marca', icon: 'tag-outline', screen: 'CadastroMarca' },
+  { id: 'categorias', label: 'Cadastrar categoria', icon: 'shape-outline', screen: 'CadastroCategoria' },
 ];
 
 const isLowStock = (item) => item.stock <= item.minimum;
@@ -236,10 +238,9 @@ const styles = StyleSheet.create({
   actionTitleAccent: { color: '#171717' },
   actionDescription: { color: '#898E97', fontSize: 8 },
   actionDescriptionAccent: { color: '#B93800' },
-  shortcutsRow: { flexDirection: 'row', gap: 9, marginBottom: 16 },
+  shortcutsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16 },
   shortcutTile: {
-    flex: 1,
-    minWidth: 0,
+    width: '48%',
     minHeight: 64,
     borderRadius: 10,
     borderWidth: 1,

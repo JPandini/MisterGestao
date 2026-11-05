@@ -1,6 +1,8 @@
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Image,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -12,8 +14,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Camera, CameraView } from 'expo-camera';
 import { useAuth } from '../context/AuthContext';
-import { createProduct } from '../services/products';
+import { createProduct, listarNomes } from '../services/products';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import FormField from '../components/FormField';
@@ -67,6 +70,33 @@ const validate = (form) => {
   return errors;
 };
 
+// Campo que mostra as opções quando passa o mouse ou toca nele
+function CampoLista({ opcoes, value, onChangeText, ...props }) {
+  const [aberto, setAberto] = useState(false);
+  const filtradas = opcoes.filter((item) => item.name.toLowerCase().includes(value.toLowerCase()));
+
+  return (
+    <Pressable onHoverIn={() => setAberto(true)} onHoverOut={() => setAberto(false)}>
+      <FormField
+        {...props}
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setTimeout(() => setAberto(false), 200)}
+      />
+      {aberto && filtradas.length > 0 ? (
+        <View style={styles.lista}>
+          {filtradas.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.opcao} onPress={() => onChangeText(item.name)}>
+              <Text>{item.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 export default function CadastroProdutoScreen({ navigation }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -76,6 +106,52 @@ export default function CadastroProdutoScreen({ navigation }) {
   const saving = useRef(false);
   const { user } = useAuth();
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
+  const [marcas, setMarcas] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [foto, setFoto] = useState('');
+  const [cameraAberta, setCameraAberta] = useState(false);
+  const cameraRef = useRef(null);
+
+  useEffect(() => {
+    const carregar = async () => {
+      try {
+        setMarcas(await listarNomes('marcas'));
+        setCategorias(await listarNomes('categorias'));
+      } catch (e) {
+        console.error('Erro ao carregar marcas e categorias:', e);
+      }
+    };
+    carregar();
+  }, []);
+
+  const abrirCamera = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    if (status === 'granted') {
+      setCameraAberta(true);
+    } else {
+      setNoticeType('error');
+      setNotice('Acesso à câmera negado!');
+    }
+  };
+
+  const tirarFoto = async () => {
+    try {
+      const resultado = await cameraRef.current.takePictureAsync({ quality: 0.1, base64: true });
+      const imagem = resultado.base64.startsWith('data:')
+        ? resultado.base64
+        : `data:image/jpg;base64,${resultado.base64}`;
+
+      if (imagem.length > 900000) {
+        setNoticeType('error');
+        setNotice('A foto ficou muito grande. Tente de novo.');
+      } else {
+        setFoto(imagem);
+      }
+    } catch (e) {
+      console.error('Erro ao tirar foto:', e);
+    }
+    setCameraAberta(false);
+  };
 
   const updateField = (field) => (value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -112,11 +188,13 @@ export default function CadastroProdutoScreen({ navigation }) {
           price: parsePriceToCents(form.price),
           stock: Number(form.stock),
           minimum: Number(form.minimum),
+          photo: foto,
         },
         user.uid
       );
 
       setForm({ ...EMPTY_FORM });
+      setFoto('');
       setErrors({});
       setNotice('Produto salvo. Ele já aparece na lista de produtos.');
     } catch (error) {
@@ -131,6 +209,18 @@ export default function CadastroProdutoScreen({ navigation }) {
       setIsSaving(false);
     }
   };
+
+  if (cameraAberta) {
+    return (
+      <View style={styles.flex}>
+        <CameraView ref={cameraRef} style={styles.flex} facing="back" />
+        <View style={styles.cameraBotoes}>
+          <Button title="Tirar foto" onPress={tirarFoto} />
+          <Button title="Cancelar" variant="secondary" onPress={() => setCameraAberta(false)} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -170,7 +260,8 @@ export default function CadastroProdutoScreen({ navigation }) {
             error={errors.name}
           />
 
-          <FormField
+          <CampoLista
+            opcoes={categorias}
             label="Categoria"
             placeholder="Ex.: Câmaras"
             value={form.category}
@@ -178,7 +269,8 @@ export default function CadastroProdutoScreen({ navigation }) {
             editable={!isSaving}
           />
 
-          <FormField
+          <CampoLista
+            opcoes={marcas}
             label="Marca"
             placeholder="Ex.: Rinaldi"
             value={form.brand}
@@ -239,6 +331,15 @@ export default function CadastroProdutoScreen({ navigation }) {
             editable={!isSaving}
           />
 
+          {foto ? <Image source={{ uri: foto }} style={styles.foto} /> : null}
+          <Button
+            title={foto ? 'Tirar outra foto' : 'Tirar foto'}
+            variant="secondary"
+            onPress={abrirCamera}
+            disabled={isSaving}
+            style={styles.secondaryButton}
+          />
+
           <Button
             title="Salvar produto"
             onPress={handleSave}
@@ -283,6 +384,10 @@ const styles = StyleSheet.create({
   rowItem: { flex: 1, minWidth: 0 },
   primaryButton: { marginTop: 6 },
   secondaryButton: { marginTop: 10 },
+  lista: { marginTop: -8, marginBottom: 14, borderWidth: 1, borderColor: '#DEE0E4', borderRadius: 9, backgroundColor: '#FFFFFF' },
+  opcao: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#EFF0F2' },
+  foto: { width: 120, height: 120, borderRadius: 10, alignSelf: 'center' },
+  cameraBotoes: { gap: 10, padding: 16, backgroundColor: '#FFFFFF' },
   notice: { fontSize: 12, lineHeight: 17, color: '#626975', textAlign: 'center', marginTop: 14 },
   noticeError: { color: '#B42318' },
 });
