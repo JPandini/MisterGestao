@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   View,
   Text,
@@ -50,10 +51,14 @@ function ProductCard({ product, onAdd }) {
   return (
     <View style={styles.card}>
       <View style={styles.cardBody}>
-        <View style={styles.photo}>
-          <Feather name="package" size={28} color="#626975" />
-          <Text style={styles.photoText}>Sem foto</Text>
-        </View>
+        {product.photo ? (
+          <Image source={{ uri: product.photo }} style={styles.photo} />
+        ) : (
+          <View style={styles.photo}>
+            <Feather name="package" size={28} color="#626975" />
+            <Text style={styles.photoText}>Sem foto</Text>
+          </View>
+        )}
 
         <View style={styles.cardInfo}>
           <Text style={styles.cardBrand}>{product.brand} · {product.code}</Text>

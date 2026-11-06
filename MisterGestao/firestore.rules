@@ -13,7 +13,7 @@ service cloud.firestore {
         ])
         && request.resource.data.keys().hasOnly([
           'name', 'category', 'brand', 'measure', 'code',
-          'price', 'stock', 'minimum', 'createdAt', 'createdBy'
+          'price', 'stock', 'minimum', 'createdAt', 'createdBy', 'photo'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -31,9 +31,29 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.uid;
     }
 
+    function validName() {
+      return request.resource.data.keys().hasOnly(['name', 'createdAt', 'createdBy'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.createdBy == request.auth.uid;
+    }
+
     match /lojas/mister-motoplace/produtos/{productId} {
       allow read: if signedIn();
       allow create: if signedIn() && validProduct();
+      allow update, delete: if false;
+    }
+
+    match /lojas/mister-motoplace/marcas/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validName();
+      allow update, delete: if false;
+    }
+
+    match /lojas/mister-motoplace/categorias/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validName();
       allow update, delete: if false;
     }
 
