@@ -1,7 +1,7 @@
-
 import { useEffect, useRef, useState } from 'react';
 import {
   Image,
+  Keyboard,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   StatusBar,
   StyleSheet,
+  TextInput,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Camera, CameraView } from 'expo-camera';
@@ -45,12 +46,24 @@ const parsePriceToCents = (text) => {
   return Number.isSafeInteger(cents) ? cents : null;
 };
 
-const validate = (form) => {
+const validate = (form, categorias, marcas) => {
   const errors = {};
   const priceInCents = parsePriceToCents(form.price);
 
   if (!form.name.trim()) {
     errors.name = 'Informe o nome do produto.';
+  }
+
+  if (!form.category) {
+    errors.category = 'Selecione uma categoria.';
+  } else if (!categorias.some((item) => item.name === form.category)) {
+    errors.category = 'Selecione uma categoria cadastrada.';
+  }
+
+  if (!form.brand) {
+    errors.brand = 'Selecione uma marca.';
+  } else if (!marcas.some((item) => item.name === form.brand)) {
+    errors.brand = 'Selecione uma marca cadastrada.';
   }
 
   if (priceInCents === null) {
@@ -70,30 +83,114 @@ const validate = (form) => {
   return errors;
 };
 
-// Campo que mostra as opções quando passa o mouse ou toca nele
-function CampoLista({ opcoes, value, onChangeText, ...props }) {
-  const [aberto, setAberto] = useState(false);
-  const filtradas = opcoes.filter((item) => item.name.toLowerCase().includes(value.toLowerCase()));
+// Lista com pesquisa: aceita somente opções cadastradas no Firestore.
+function CampoSelect({
+  label,
+  opcoes,
+  value,
+  onSelect,
+  placeholder,
+  error,
+  disabled,
+  aberto,
+  onOpenChange,
+}) {
+  const [termo, setTermo] = useState('');
+  const estaAberto = aberto && !disabled;
+  const normalizar = (texto) =>
+    texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const busca = normalizar(termo);
+  const opcoesFiltradas = opcoes.filter((item) => normalizar(item.name).includes(busca));
+
+  function selecionar(item) {
+    onSelect(item.name);
+    setTermo('');
+    onOpenChange(false);
+    Keyboard.dismiss();
+  }
+
+  function alternar() {
+    setTermo('');
+    onOpenChange(!estaAberto);
+  }
 
   return (
-    <Pressable onHoverIn={() => setAberto(true)} onHoverOut={() => setAberto(false)}>
-      <FormField
-        {...props}
-        value={value}
-        onChangeText={onChangeText}
-        onFocus={() => setAberto(true)}
-        onBlur={() => setTimeout(() => setAberto(false), 200)}
-      />
-      {aberto && filtradas.length > 0 ? (
-        <View style={styles.lista}>
-          {filtradas.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.opcao} onPress={() => onChangeText(item.name)}>
-              <Text>{item.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : null}
-    </Pressable>
+    <View style={[styles.selectField, estaAberto && styles.selectFieldOpen]}>
+      <Text style={styles.selectLabel}>{label}</Text>
+
+      <View style={styles.selectControl}>
+        <Pressable
+          style={[
+            styles.selectButton,
+            estaAberto && styles.selectButtonOpen,
+            error && styles.selectButtonError,
+            disabled && styles.selectButtonDisabled,
+          ]}
+          onPress={alternar}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityState={{ disabled, expanded: estaAberto }}
+          accessibilityLabel={`${label}: ${value || placeholder}`}
+        >
+          <Text numberOfLines={1} style={[styles.selectValue, !value && styles.selectPlaceholder]}>
+            {value || placeholder}
+          </Text>
+          <Feather name={estaAberto ? 'chevron-up' : 'chevron-down'} size={16} color="#626975" />
+        </Pressable>
+
+        {estaAberto ? (
+          <View style={styles.dropdown}>
+            <View style={styles.dropdownSearchContainer}>
+              <TextInput
+                style={styles.dropdownSearch}
+                value={termo}
+                onChangeText={setTermo}
+                placeholder={`Buscar ${label.toLowerCase()}...`}
+                placeholderTextColor="#9A9CA1"
+                accessibilityLabel={`Buscar ${label.toLowerCase()}`}
+                autoCorrect={false}
+                autoCapitalize="none"
+                autoFocus
+                onKeyPress={({ nativeEvent }) => {
+                  if (nativeEvent.key === 'Escape') onOpenChange(false);
+                }}
+              />
+            </View>
+
+            {opcoesFiltradas.length > 0 ? (
+              <ScrollView
+                style={styles.dropdownOptions}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+              >
+                {opcoesFiltradas.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.selectOption, item.name === value && styles.selectOptionSelected]}
+                    onPress={() => selecionar(item)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: item.name === value }}
+                  >
+                    <Text
+                      style={[styles.selectOptionText, item.name === value && styles.selectOptionTextSelected]}
+                    >
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.emptyOptions}>
+                {opcoes.length === 0 ? 'Nenhuma opção cadastrada.' : 'Nenhuma opção encontrada.'}
+              </Text>
+            )}
+          </View>
+        ) : null}
+      </View>
+
+      {error ? <Text style={styles.selectError}>{error}</Text> : null}
+    </View>
   );
 }
 
@@ -108,6 +205,7 @@ export default function CadastroProdutoScreen({ navigation }) {
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
   const [marcas, setMarcas] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [selectAberto, setSelectAberto] = useState(null);
   const [foto, setFoto] = useState('');
   const [cameraAberta, setCameraAberta] = useState(false);
   const cameraRef = useRef(null);
@@ -160,7 +258,7 @@ export default function CadastroProdutoScreen({ navigation }) {
   const handleSave = async () => {
     if (saving.current) return;
 
-    const nextErrors = validate(form);
+    const nextErrors = validate(form, categorias, marcas);
 
     setErrors(nextErrors);
     setNotice('');
@@ -174,6 +272,7 @@ export default function CadastroProdutoScreen({ navigation }) {
       return;
     }
 
+    setSelectAberto(null);
     saving.current = true;
     setIsSaving(true);
 
@@ -260,22 +359,28 @@ export default function CadastroProdutoScreen({ navigation }) {
             error={errors.name}
           />
 
-          <CampoLista
+          <CampoSelect
             opcoes={categorias}
             label="Categoria"
-            placeholder="Ex.: Câmaras"
+            placeholder="Selecione uma categoria"
             value={form.category}
-            onChangeText={updateField('category')}
-            editable={!isSaving}
+            onSelect={updateField('category')}
+            disabled={isSaving}
+            error={errors.category}
+            aberto={selectAberto === 'category'}
+            onOpenChange={(open) => setSelectAberto(open ? 'category' : null)}
           />
 
-          <CampoLista
+          <CampoSelect
             opcoes={marcas}
             label="Marca"
-            placeholder="Ex.: Rinaldi"
+            placeholder="Selecione uma marca"
             value={form.brand}
-            onChangeText={updateField('brand')}
-            editable={!isSaving}
+            onSelect={updateField('brand')}
+            disabled={isSaving}
+            error={errors.brand}
+            aberto={selectAberto === 'brand'}
+            onOpenChange={(open) => setSelectAberto(open ? 'brand' : null)}
           />
 
           <FormField
@@ -384,8 +489,69 @@ const styles = StyleSheet.create({
   rowItem: { flex: 1, minWidth: 0 },
   primaryButton: { marginTop: 6 },
   secondaryButton: { marginTop: 10 },
-  lista: { marginTop: -8, marginBottom: 14, borderWidth: 1, borderColor: '#DEE0E4', borderRadius: 9, backgroundColor: '#FFFFFF' },
-  opcao: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#EFF0F2' },
+  selectField: { marginBottom: 14, position: 'relative', zIndex: 1 },
+  selectFieldOpen: { zIndex: 1000, elevation: 10 },
+  selectLabel: { fontSize: 12, fontWeight: '600', color: '#444850', marginBottom: 6 },
+  selectControl: { position: 'relative' },
+  selectButton: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#D2D4D8',
+    borderRadius: 2,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectButtonOpen: {
+    borderColor: '#B8BCC3',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  selectButtonError: { borderColor: '#C94700' },
+  selectButtonDisabled: { opacity: 0.6 },
+  selectValue: { flex: 1, marginRight: 8, fontSize: 14, color: '#151619' },
+  selectPlaceholder: { color: '#9A9CA1' },
+  selectError: { fontSize: 11, color: '#C94700', marginTop: 5 },
+  dropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: -1,
+    zIndex: 1001,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: '#B8BCC3',
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  dropdownSearchContainer: { padding: 4 },
+  dropdownSearch: {
+    height: 36,
+    borderWidth: 1,
+    borderColor: '#D2D4D8',
+    borderRadius: 0,
+    paddingVertical: 0,
+    paddingHorizontal: 8,
+    fontSize: 14,
+    color: '#151619',
+    backgroundColor: '#FFFFFF',
+  },
+  dropdownOptions: { maxHeight: 180 },
+  selectOption: {
+    minHeight: 36,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    justifyContent: 'center',
+  },
+  selectOptionSelected: { backgroundColor: '#5897FB' },
+  selectOptionText: { fontSize: 14, color: '#151619' },
+  selectOptionTextSelected: { color: '#FFFFFF' },
+  emptyOptions: { padding: 16, textAlign: 'center', color: '#7E8086' },
   foto: { width: 120, height: 120, borderRadius: 10, alignSelf: 'center' },
   cameraBotoes: { gap: 10, padding: 16, backgroundColor: '#FFFFFF' },
   notice: { fontSize: 12, lineHeight: 17, color: '#626975', textAlign: 'center', marginTop: 14 },
