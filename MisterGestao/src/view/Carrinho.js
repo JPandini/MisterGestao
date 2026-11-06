@@ -1,10 +1,11 @@
-import { FlatList, View, Text, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
+import { Alert, FlatList, View, Text, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { salvarOrcamento } from '../services/orcamentos';
 
 const formatCurrency = (cents) =>
   (Number(cents || 0) / 100).toLocaleString('pt-BR', {
@@ -42,6 +43,16 @@ export default function Carrinho({ navigation }) {
   const { itens, total, alterarQuantidade, remover, limpar } = useCart();
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
 
+  async function gerarOrcamento() {
+    try {
+      const id = await salvarOrcamento({ itens }, user.uid);
+
+      navigation.navigate('Orcamento', { id });
+    } catch (erro) {
+      console.error('Erro ao salvar orçamento:', erro);
+      Alert.alert('Erro', erro.message);
+    }
+  }
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -71,6 +82,7 @@ export default function Carrinho({ navigation }) {
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValor}>{formatCurrency(total)}</Text>
             </View>
+            <Button title="Gerar orçamento" onPress={gerarOrcamento} />
             <Button title="Limpar carrinho" variant="secondary" onPress={limpar} />
           </View>
         ) : null}

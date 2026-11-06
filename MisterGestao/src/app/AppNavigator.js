@@ -12,6 +12,7 @@ import MainTabsNavigator from './MainTabsNavigator';
 import RegisterProductScreen from '../view/CadastroProduto';
 import CartScreen from '../view/Carrinho';
 import CadastroNome from '../view/CadastroNome';
+import OrcamentoScreen from '../view/Orcamento'
 
 const Stack = createNativeStackNavigator();
 
@@ -34,6 +35,7 @@ function AuthenticatedNavigator() {
           <Stack.Screen name="Carrinho" component={CartScreen} />
           <Stack.Screen name="CadastroMarca" component={CadastroNome} />
           <Stack.Screen name="CadastroCategoria" component={CadastroNome} />
+          <Stack.Screen name="Orcamento" component={OrcamentoScreen} />
         </Stack.Navigator>
       </CartProvider>
     </ProductsProvider>
