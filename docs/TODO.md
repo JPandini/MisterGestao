@@ -21,9 +21,9 @@ O guia geral foi copiado do material enviado por Pandini e preserva o contexto o
 | Home | Danner | Refatoração, resumo, estoque baixo e atalhos. | Estoque baixo agora vem do contexto compartilhado do Firestore; resumo de vendas fictício removido. |
 | Produtos | Danner | Lista, pesquisa, preço, estoque e seleção para o carrinho. | Lista, pesquisa e filtros ligados ao Firestore; carrinho segue pendente. |
 | Cadastro de produto | Ferrari | Formulário, validações e integração com função comum de salvar. | Formulário registra produtos no Firestore e a lista compartilhada recebe as alterações. |
-| Orçamentos salvos | Ferrari | Lista, status, estado vazio e abertura do detalhe pelo ID. | A fazer. |
+| Orçamentos salvos | Ferrari | Lista, status, estado vazio e abertura do detalhe pelo ID. | Implementado: consulta ao Firestore, busca por número/cliente/contato, data, validade, status, total e abertura por ID. Verificações com dados simulados passaram; teste no aparelho com conta real pendente. |
 | Carrinho | Pandini | Itens, quantidades, cliente, desconto, frete, validade e totais. | A fazer. |
-| Detalhe do orçamento | Pandini | Gerar/salvar, visualizar, compartilhar, aprovar, cancelar e converter. | A fazer. |
+| Detalhe do orçamento | Pandini | Gerar/salvar, visualizar, compartilhar, aprovar, cancelar e converter. | Salvamento e consulta por ID disponíveis. Compartilhamento em texto pelo WhatsApp com escolha/cadastro de cliente implementado; serviços e regras validados no emulador. Publicação das regras e teste no aparelho pendentes. Aprovação, cancelamento e conversão ainda a fazer. |
 | Nova venda | Pandini | Venda direta e revisão da conversão de orçamento. | A fazer. |
 | Finalizar venda | Pandini | Entrega/retirada, pagamento, confirmação e baixa de estoque. | A fazer. |
 | Recibo | Pandini | Consulta e compartilhamento da venda registrada. | A fazer. |

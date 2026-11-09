@@ -12,6 +12,7 @@ O arquivo `MisterGestao/.env.example` documenta os seis valores públicos do app
 - MisterGestao/src/services/auth.js: autenticação na web.
 - MisterGestao/src/services/auth.native.js: autenticação Android/iOS com persistência em AsyncStorage.
 - MisterGestao/src/services/products.js: consulta em tempo real e cadastro de produtos no Firestore.
+- MisterGestao/src/services/orcamentos.js: salvamento, consulta por ID e listagem em tempo real de orçamentos.
 - MisterGestao/src/context/ProductsContext.js: compartilha produtos entre Home e Produtos.
 - MisterGestao/firestore.rules: leitura/cadastro disponíveis para qualquer conta autenticada no app; outros caminhos ficam fechados.
 
@@ -48,7 +49,29 @@ Em caso de permissão negada, confira a sessão e se as regras atuais foram publ
 
 Analytics e Storage não são necessários para esta etapa.
 
+## Orçamentos — 08/11/2026
+
+Os orçamentos usam `lojas/mister-motoplace/orcamentos`, conforme o serviço e as regras já existentes. A aba Orçamentos abre a lista de salvos, ordenada por `createdAt` do mais recente para o mais antigo. A consulta acompanha alterações enquanto a aba está aberta e é encerrada ao sair; voltar à aba inicia uma nova consulta. A busca local aceita número (ID), cliente e contato. Tocar no registro abre a rota `Orcamento` com seu ID.
+
+O fluxo Produtos → Carrinho → Gerar orçamento salva uma cópia dos itens e preços, sem alterar estoque. O salvamento valida valores em centavos e quantidades e impede envios simultâneos pelo botão. Orçamentos em aberto com validade anterior ao dia atual aparecem como vencidos, sem alterar seu status no banco.
+
+Verificados lint, exportação Android/web e cenários de serviço/tela com Firebase simulado (lista vazia, dois registros, busca, detalhe por ID, validade, erros, nova tentativa, encerramento da consulta e envio duplicado). Teste no aparelho com sessão e Firestore reais permanece pendente. As regras remotas não foram publicadas nem verificadas nesta entrega.
+
 Referência Expo: https://docs.expo.dev/guides/using-firebase/
+
+## Clientes e compartilhamento — 08/11/2026
+
+No detalhe do orçamento, **Compartilhar pelo WhatsApp** abre a escolha de cliente, com busca por nome/telefone e cadastro no mesmo fluxo. Os únicos campos de negócio são `nome` e `telefone` (DDD + número brasileiro; o código +55 é aceito na entrada e acrescentado no link do WhatsApp). O cadastro fica em `lojas/mister-motoplace/clientes/{telefone}`, com `createdAt` e `createdBy`. O telefone normalizado identifica o documento: cadastros simultâneos com o mesmo número reutilizam o cliente existente sem sobrescrever seu nome.
+
+Escolher um cliente salva `cliente: { id, nome, contato }` no orçamento, preservando os demais campos. O detalhe e a lista passam a mostrar o destinatário salvo. As regras permitem apenas essa alteração no orçamento, validando o cliente contra seu cadastro; itens, valores, status e estoque não são alterados pelo compartilhamento. Clientes podem ser consultados e criados por contas autenticadas; edição e exclusão ficam bloqueadas.
+
+Depois de salvar a seleção, **Abrir WhatsApp** abre `https://wa.me/55{telefone}?text=...` com uma mensagem contendo loja, número do orçamento, cliente, itens/quantidades/preços, subtotal, desconto, frete, total, validade e observações. A tela permite conferir a mensagem antes de abrir. O envio é confirmado pela pessoa no WhatsApp; abrir o aplicativo não registra sucesso de envio no banco.
+
+Validados sete cenários de serviços e regras no Firestore Emulator (projeto isolado `demo-mistergestao`) e onze cenários de interface com abertura de links simulada. Para repetir os testes de banco, na pasta do app: `npx firebase-tools emulators:exec --only firestore --project demo-mistergestao --config firebase.emulators.json "node scripts/check-compartilhamento.cjs"`. Java é necessário. Lint e exportação Android/web também passaram; teste de abertura do WhatsApp em aparelho real permanece pendente.
+
+**Publicação pendente:** a consulta às regras remotas retornou HTTP 403 com a sessão do CLI disponível. As regras novas foram preparadas em `MisterGestao/firestore.rules`, mas não publicadas. Uma conta com acesso ao projeto deve publicar pelo Firebase Console → Firestore → Regras, ou executar `npx firebase-tools deploy --only firestore:rules --project mistergestao-5ebe1`. Sem essa publicação, o banco pode recusar o cadastro de clientes e a associação ao orçamento.
+
+Referência WhatsApp: https://faq.whatsapp.com/5913398998672934
 
 ## Dependências e verificações — 22/10/2026
 

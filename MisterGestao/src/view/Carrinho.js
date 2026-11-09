@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Alert, FlatList, View, Text, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +14,7 @@ const formatCurrency = (cents) =>
     currency: 'BRL',
   });
 
-function ItemCarrinho({ item, onAlterar, onRemover }) {
+function ItemCarrinho({ item, onAlterar, onRemover, disabled }) {
   return (
     <View style={styles.card}>
       <View style={styles.cardInfo}>
@@ -23,14 +24,14 @@ function ItemCarrinho({ item, onAlterar, onRemover }) {
       </View>
 
       <View style={styles.acoes}>
-        <TouchableOpacity style={styles.botaoQtd} onPress={() => onAlterar(item.id, item.quantidade - 1)}>
+        <TouchableOpacity disabled={disabled} style={styles.botaoQtd} onPress={() => onAlterar(item.id, item.quantidade - 1)}>
           <Feather name="minus" size={16} color="#C94700" />
         </TouchableOpacity>
         <Text style={styles.quantidade}>{item.quantidade}</Text>
-        <TouchableOpacity style={styles.botaoQtd} onPress={() => onAlterar(item.id, item.quantidade + 1)}>
+        <TouchableOpacity disabled={disabled} style={styles.botaoQtd} onPress={() => onAlterar(item.id, item.quantidade + 1)}>
           <Feather name="plus" size={16} color="#C94700" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.remover} onPress={() => onRemover(item.id)}>
+        <TouchableOpacity disabled={disabled} style={styles.remover} onPress={() => onRemover(item.id)}>
           <Feather name="trash-2" size={18} color="#8F9297" />
         </TouchableOpacity>
       </View>
@@ -42,15 +43,24 @@ export default function Carrinho({ navigation }) {
   const { user } = useAuth();
   const { itens, total, alterarQuantidade, remover, limpar } = useCart();
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
+  const [salvando, setSalvando] = useState(false);
+  const envioEmAndamento = useRef(false);
 
   async function gerarOrcamento() {
+    if (envioEmAndamento.current) return;
+    envioEmAndamento.current = true;
+    setSalvando(true);
     try {
-      const id = await salvarOrcamento({ itens }, user.uid);
+      const id = await salvarOrcamento({ itens }, user?.uid);
 
       navigation.navigate('Orcamento', { id });
     } catch (erro) {
-      console.error('Erro ao salvar orçamento:', erro);
-      Alert.alert('Erro', erro.message);
+      Alert.alert('Não foi possível salvar', erro.code === 'permission-denied'
+        ? 'O banco recusou o orçamento. Confira sua sessão e as permissões no Firebase.'
+        : erro.message || 'Verifique sua conexão e tente novamente.');
+    } finally {
+      envioEmAndamento.current = false;
+      setSalvando(false);
     }
   }
   return (
@@ -70,7 +80,7 @@ export default function Carrinho({ navigation }) {
           data={itens}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ItemCarrinho item={item} onAlterar={alterarQuantidade} onRemover={remover} />
+            <ItemCarrinho item={item} onAlterar={alterarQuantidade} onRemover={remover} disabled={salvando} />
           )}
           ListEmptyComponent={<Text style={styles.vazio}>Nenhum produto no carrinho.</Text>}
           contentContainerStyle={styles.lista}
@@ -82,8 +92,8 @@ export default function Carrinho({ navigation }) {
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValor}>{formatCurrency(total)}</Text>
             </View>
-            <Button title="Gerar orçamento" onPress={gerarOrcamento} />
-            <Button title="Limpar carrinho" variant="secondary" onPress={limpar} />
+            <Button title={salvando ? 'Salvando orçamento...' : 'Gerar orçamento'} loading={salvando} onPress={gerarOrcamento} />
+            <Button title="Limpar carrinho" variant="secondary" onPress={limpar} disabled={salvando} />
           </View>
         ) : null}
       </View>
