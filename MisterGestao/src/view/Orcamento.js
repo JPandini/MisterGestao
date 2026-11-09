@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import { buscarOrcamento } from '../services/orcamentos';
@@ -17,8 +18,10 @@ export default function Orcamento({ route, navigation }) {
   const atual = resultado?.id === id ? resultado : null;
   const orcamento = atual?.orcamento;
   const mensagem = atual?.mensagem ?? 'Carregando orçamento...';
+  const focada = useIsFocused();
 
   useEffect(() => {
+    if (!focada) return;
     let aberta = true;
 
     async function carregar() {
@@ -37,7 +40,7 @@ export default function Orcamento({ route, navigation }) {
 
     // Impede atualizar os dados depois de sair desta tela.
     return () => { aberta = false; };
-  }, [id]);
+  }, [id, focada]);
 
   return (
     <SafeAreaView style={styles.tela}>
@@ -54,8 +57,8 @@ export default function Orcamento({ route, navigation }) {
             <Text style={styles.nome}>Mister MotoPlace</Text>
             <Text style={styles.texto}>Número: {orcamento.id}</Text>
 
-            <Text style={styles.nome}>{orcamento.cliente.nome || 'Cliente não informado'}</Text>
-            {orcamento.cliente.contato ? (
+            <Text style={styles.nome}>{orcamento.cliente?.nome || 'Cliente não informado'}</Text>
+            {orcamento.cliente?.contato ? (
               <Text style={styles.texto}>{orcamento.cliente.contato}</Text>
             ) : null}
             <Text style={styles.texto}>
@@ -98,6 +101,7 @@ export default function Orcamento({ route, navigation }) {
             ) : null}
 
             <Text style={styles.texto}>Este orçamento não reserva estoque.</Text>
+            <Button title="Compartilhar pelo WhatsApp" onPress={() => navigation.navigate('CompartilharOrcamento', { id })} />
           </View>
         ) : null}
       </ScrollView>

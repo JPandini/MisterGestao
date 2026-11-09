@@ -57,6 +57,21 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /lojas/mister-motoplace/clientes/{clienteId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['nome', 'telefone', 'createdAt', 'createdBy'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 120
+        && request.resource.data.telefone is string
+        && request.resource.data.telefone.matches('[1-9]{2}([2-5][0-9]{7}|9[0-9]{8})')
+        && clienteId == request.resource.data.telefone
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /lojas/mister-motoplace/orcamentos/{orcamentoId} {
       allow read: if signedIn();
 
@@ -77,7 +92,18 @@ service cloud.firestore {
             - request.resource.data.desconto
             + request.resource.data.frete;
 
-      allow update, delete: if false;
+      // A escolha do destinatário só pode alterar o cliente, preservando itens e valores.
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cliente'])
+        && request.resource.data.cliente is map
+        && request.resource.data.cliente.keys().hasOnly(['id', 'nome', 'contato'])
+        && request.resource.data.cliente.id is string
+        && request.resource.data.cliente.id.matches('[1-9]{2}([2-5][0-9]{7}|9[0-9]{8})')
+        && request.resource.data.cliente.nome
+          == get(/databases/$(database)/documents/lojas/mister-motoplace/clientes/$(request.resource.data.cliente.id)).data.nome
+        && request.resource.data.cliente.contato
+          == get(/databases/$(database)/documents/lojas/mister-motoplace/clientes/$(request.resource.data.cliente.id)).data.telefone;
+      allow delete: if false;
     }
 
     match /{document=**} {
