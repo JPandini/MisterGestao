@@ -80,6 +80,8 @@ export default function CompartilharOrcamento({ route, navigation }) {
       const escolhido = novo ? await salvarCliente(cliente, user?.uid) : cliente;
       const atualizado = await vincularClienteAoOrcamento(id, escolhido.id);
       setResultado({ id, orcamento: atualizado });
+      // No celular já abre o PDF para enviar ao cliente escolhido
+      if (Platform.OS !== 'web') enviarPdfOrcamento(atualizado).catch((e) => console.error('Erro ao gerar o PDF:', e));
       listaRef.current?.scrollToOffset({ offset: 0, animated: true });
       if (novo) {
         setCadastrando(false);
@@ -176,7 +178,7 @@ export default function CompartilharOrcamento({ route, navigation }) {
                   <Button title="Abrir WhatsApp" loading={ocupado} onPress={abrirWhatsApp} />
                   <Text style={styles.texto}>A mensagem abre preenchida. Confirme o envio no WhatsApp.</Text>
                   <Button title="Enviar PDF" variant="secondary" onPress={enviarPdf} disabled={ocupado} />
-                  <Text style={styles.texto}>Gera o orçamento em PDF. Na janela que abrir, escolha o WhatsApp e o cliente.</Text>
+                  <Text style={styles.texto}>Ao escolher o cliente, o PDF abre sozinho. Na janela que abrir, toque em WhatsApp e escolha o cliente. Use este botão para enviar de novo.</Text>
                   <Button title={verMensagem ? 'Ocultar mensagem' : 'Ver mensagem'} variant="secondary" onPress={() => setVerMensagem((valor) => !valor)} />
                   {verMensagem ? <Text style={styles.texto} selectable>{montarMensagemOrcamento(orcamento)}</Text> : null}
                 </View>
