@@ -128,17 +128,6 @@ export default function CompartilharOrcamento({ route, navigation }) {
     }
   }
 
-  async function enviarPdf() {
-    setErroAcao('');
-    setAviso('');
-    try {
-      await enviarPdfOrcamento(orcamento);
-    } catch (e) {
-      console.error('Erro ao gerar o PDF:', e);
-      setErroAcao('Não foi possível gerar o PDF do orçamento.');
-    }
-  }
-
   const termo = busca.trim().toLocaleLowerCase('pt-BR');
   const digitos = busca.replace(/\D/g, '');
   const filtrados = clientes.filter((cliente) => (
@@ -177,8 +166,6 @@ export default function CompartilharOrcamento({ route, navigation }) {
                   <Text style={styles.texto}>{contato}</Text>
                   <Button title="Abrir WhatsApp" loading={ocupado} onPress={abrirWhatsApp} />
                   <Text style={styles.texto}>A mensagem abre preenchida. Confirme o envio no WhatsApp.</Text>
-                  <Button title="Enviar PDF" variant="secondary" onPress={enviarPdf} disabled={ocupado} />
-                  <Text style={styles.texto}>Ao escolher o cliente, o PDF abre sozinho. Na janela que abrir, toque em WhatsApp e escolha o cliente. Use este botão para enviar de novo.</Text>
                   <Button title={verMensagem ? 'Ocultar mensagem' : 'Ver mensagem'} variant="secondary" onPress={() => setVerMensagem((valor) => !valor)} />
                   {verMensagem ? <Text style={styles.texto} selectable>{montarMensagemOrcamento(orcamento)}</Text> : null}
                 </View>
