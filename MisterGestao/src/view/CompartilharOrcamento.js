@@ -69,6 +69,14 @@ export default function CompartilharOrcamento({ route, navigation }) {
     setTentativa((valor) => valor + 1);
   }
 
+  async function abrirPdf(dados) {
+    try {
+      await enviarPdfOrcamento(dados);
+    } catch (e) {
+      console.error('Erro ao gerar o PDF:', e);
+    }
+  }
+
   async function escolherCliente(cliente, novo = false) {
     if (emAndamento.current || !orcamento) return;
     setErroAcao('');
@@ -81,7 +89,9 @@ export default function CompartilharOrcamento({ route, navigation }) {
       const atualizado = await vincularClienteAoOrcamento(id, escolhido.id);
       setResultado({ id, orcamento: atualizado });
       // No celular já abre o PDF para enviar ao cliente escolhido
-      if (Platform.OS !== 'web') enviarPdfOrcamento(atualizado).catch((e) => console.error('Erro ao gerar o PDF:', e));
+      if (Platform.OS !== 'web') {
+        abrirPdf(atualizado);
+      }
       listaRef.current?.scrollToOffset({ offset: 0, animated: true });
       if (novo) {
         setCadastrando(false);

@@ -7,11 +7,12 @@ const dinheiro = (valor) => (Number(valor || 0) / 100).toLocaleString('pt-BR', {
   style: 'currency', currency: 'BRL',
 });
 
-// Evita que um nome com < ou & quebre o HTML
+// Troca < > & " por códigos do HTML, para um nome com esses símbolos não quebrar a página
 const texto = (valor) => String(valor || '').replace(/[&<>"]/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
 ));
 
+// Monta o orçamento em HTML (o mesmo HTML vira PDF e aparece na página do link)
 export function montarHtmlOrcamento(orcamento) {
   const data = orcamento.createdAt?.toDate ? orcamento.createdAt.toDate() : new Date();
   const validade = orcamento.validade ? orcamento.validade.split('-').reverse().join('/') : '';
@@ -102,6 +103,7 @@ export function montarHtmlOrcamento(orcamento) {
 </html>`;
 }
 
+// Gera o PDF do orçamento e abre para enviar
 export async function enviarPdfOrcamento(orcamento) {
   const html = montarHtmlOrcamento(orcamento);
 

@@ -28,14 +28,21 @@ const isLowStock = (item) => item.stock <= item.minimum;
 function SalesCard() {
   const [vendas, setVendas] = useState([]);
 
+  // Fica atualizando as vendas sozinho
   useEffect(() => {
-    return acompanharVendas(setVendas, (e) => console.error('Erro ao carregar vendas:', e));
+    const parar = acompanharVendas(setVendas, (e) => console.error('Erro ao carregar vendas:', e));
+    return parar;
   }, []);
 
-  // Só as vendas de hoje
+  // Pega só as vendas de hoje e soma o total
   const inicioDoDia = new Date().setHours(0, 0, 0, 0);
   const hoje = vendas.filter((venda) => venda.createdAt?.toDate() >= inicioDoDia);
   const total = hoje.reduce((soma, venda) => soma + venda.total, 0);
+
+  let resumo = 'Nenhuma venda hoje.';
+  if (hoje.length > 0) {
+    resumo = `${hoje.length} venda(s) · última: ${hoje[0].cliente || 'sem cliente'}`;
+  }
 
   return (
     <View style={styles.salesCard}>
@@ -44,7 +51,7 @@ function SalesCard() {
         {(total / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
       </Text>
       <Text style={styles.mutedOnDark}>
-        {hoje.length === 0 ? 'Nenhuma venda hoje.' : `${hoje.length} ${hoje.length === 1 ? 'venda' : 'vendas'}${hoje[0].cliente ? ` · última: ${hoje[0].cliente}` : ''}`}
+        {resumo}
       </Text>
     </View>
   );
