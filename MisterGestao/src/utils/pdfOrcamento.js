@@ -36,6 +36,7 @@ export function montarHtmlOrcamento(orcamento) {
 <meta charset="utf-8">
 <style>
   @page { margin: 28px; }
+  @media screen { body { padding: 16px; } }
   body { font-family: Helvetica, Arial, sans-serif; color: #151619; margin: 0; font-size: 13px; }
   .topo { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 14px; border-bottom: 4px solid #F45108; }
   .marca { font-size: 28px; font-weight: 800; letter-spacing: -1px; }

@@ -73,7 +73,9 @@ service cloud.firestore {
     }
 
     match /lojas/mister-motoplace/orcamentos/{orcamentoId} {
-      allow read: if signedIn();
+      // Quem tem o link abre um orçamento; listar todos exige login
+      allow get: if true;
+      allow list: if signedIn();
 
       allow create: if signedIn()
         && request.resource.data.createdBy == request.auth.uid
