@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeScreen from '../view/Home';
 import ProductsScreen from '../view/Produtos';
-import UpcomingScreen from '../view/EmDesenvolvimento';
+import NovaVenda from '../view/NovaVenda';
 import OrcamentosScreen from '../view/Orcamentos';
 
 const Tab = createBottomTabNavigator();
@@ -45,7 +45,7 @@ export default function MainTabsNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Hoje' }} />
       <Tab.Screen name="Produtos" component={ProductsScreen} />
       <Tab.Screen name="Orcamentos" component={OrcamentosScreen} options={{ title: 'Orçamentos' }} />
-      <Tab.Screen name="Venda" component={UpcomingScreen} />
+      <Tab.Screen name="Venda" component={NovaVenda} />
     </Tab.Navigator>
   );
 }

@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
+import { acompanharVendas } from '../services/vendas';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import {
@@ -25,19 +26,42 @@ const SHORTCUTS = [
 const isLowStock = (item) => item.stock <= item.minimum;
 
 function SalesCard() {
+  const [vendas, setVendas] = useState([]);
+
+  // Fica atualizando as vendas sozinho
+  useEffect(() => {
+    const parar = acompanharVendas(setVendas, (e) => console.error('Erro ao carregar vendas:', e));
+    return parar;
+  }, []);
+
+  // Pega só as vendas de hoje e soma o total
+  const inicioDoDia = new Date().setHours(0, 0, 0, 0);
+  const hoje = vendas.filter((venda) => venda.createdAt?.toDate() >= inicioDoDia);
+  const total = hoje.reduce((soma, venda) => soma + venda.total, 0);
+
+  let resumo = 'Nenhuma venda hoje.';
+  if (hoje.length > 0) {
+    resumo = `${hoje.length} venda(s) · última: ${hoje[0].cliente || 'sem cliente'}`;
+  }
+
   return (
     <View style={styles.salesCard}>
-      <Text style={styles.salesEyebrow}>VENDAS</Text>
-      <Text style={styles.salesAmount}>Resumo indisponível</Text>
-      <Text style={styles.mutedOnDark}>O cadastro de vendas ainda não está disponível.</Text>
+      <Text style={styles.salesEyebrow}>VENDAS DE HOJE</Text>
+      <Text style={styles.salesAmount}>
+        {(total / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+      </Text>
+      <Text style={styles.mutedOnDark}>
+        {resumo}
+      </Text>
     </View>
   );
 }
 
-function ActionCard({ icon, title, description, accent = false, disabled = false }) {
+function ActionCard({ icon, title, description, accent = false, disabled = false, onPress }) {
   return (
     <TouchableOpacity
       style={[styles.actionCard, accent && styles.actionCardAccent]}
+      onPress={onPress}
       disabled={disabled}
       activeOpacity={0.8}
     >
@@ -143,7 +167,7 @@ export default function MisterGestaoHome({ navigation }) {
         <SalesCard />
 
         <View style={styles.actionsRow}>
-          <ActionCard icon="plus" title="Nova venda" description="Começar venda" accent disabled />
+          <ActionCard icon="plus" title="Nova venda" description="Começar venda" accent onPress={() => navigation.navigate('Venda')} />
           <ActionCard icon="barcode-scan" title="Escanear" description="Encontrar produto" disabled />
         </View>
 
@@ -240,7 +264,8 @@ const styles = StyleSheet.create({
   actionDescriptionAccent: { color: '#B93800' },
   shortcutsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16 },
   shortcutTile: {
-    width: '48%',
+    flexGrow: 1,
+    flexBasis: '40%',
     minHeight: 64,
     borderRadius: 10,
     borderWidth: 1,
