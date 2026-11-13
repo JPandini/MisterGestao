@@ -264,7 +264,8 @@ const styles = StyleSheet.create({
   actionDescriptionAccent: { color: '#B93800' },
   shortcutsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16 },
   shortcutTile: {
-    width: '48%',
+    flexGrow: 1,
+    flexBasis: '40%',
     minHeight: 64,
     borderRadius: 10,
     borderWidth: 1,
