@@ -42,6 +42,27 @@ service cloud.firestore {
     match /lojas/mister-motoplace/produtos/{productId} {
       allow read: if signedIn();
       allow create: if signedIn() && validProduct();
+      // Venda: só pode baixar o estoque
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
+        && request.resource.data.stock is int
+        && request.resource.data.stock >= 0
+        && request.resource.data.stock < resource.data.stock;
+      allow delete: if false;
+    }
+
+    match /lojas/mister-motoplace/vendas/{vendaId} {
+      allow read: if signedIn();
+      // A venda tem o mesmo código do orçamento e só é criada junto com a conversão dele
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['orcamentoId', 'cliente', 'total', 'createdAt', 'createdBy'])
+        && request.resource.data.orcamentoId == vendaId
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && get(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(request.resource.data.orcamentoId)).data.status == 'open'
+        && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(request.resource.data.orcamentoId)).data.status == 'converted'
+        && request.resource.data.total
+          == get(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(request.resource.data.orcamentoId)).data.total;
       allow update, delete: if false;
     }
 
@@ -73,7 +94,9 @@ service cloud.firestore {
     }
 
     match /lojas/mister-motoplace/orcamentos/{orcamentoId} {
-      allow read: if signedIn();
+      // Quem tem o link abre um orçamento; listar todos exige login
+      allow get: if true;
+      allow list: if signedIn();
 
       allow create: if signedIn()
         && request.resource.data.createdBy == request.auth.uid
@@ -91,6 +114,13 @@ service cloud.firestore {
           == request.resource.data.subtotal
             - request.resource.data.desconto
             + request.resource.data.frete;
+
+      // Confirmar venda: o orçamento aberto passa a convertido, junto com o registro da venda
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && resource.data.status == 'open'
+        && request.resource.data.status == 'converted'
+        && existsAfter(/databases/$(database)/documents/lojas/mister-motoplace/vendas/$(orcamentoId));
 
       // A escolha do destinatário só pode alterar o cliente, preservando itens e valores.
       allow update: if signedIn()

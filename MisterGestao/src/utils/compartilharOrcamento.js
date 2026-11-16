@@ -1,5 +1,7 @@
 import { normalizarTelefone } from './clientes';
 
+export const SITE = 'https://mistergestao-5ebe1.web.app';
+
 const dinheiro = (valor) => (Number(valor || 0) / 100).toLocaleString('pt-BR', {
   style: 'currency', currency: 'BRL',
 });
@@ -22,6 +24,7 @@ export function montarMensagemOrcamento(orcamento) {
   ];
   if (orcamento.validade) linhas.push(`Validade: ${orcamento.validade.split('-').reverse().join('/')}`);
   if (orcamento.observacoes) linhas.push('', `Observações: ${orcamento.observacoes}`);
+  if (orcamento.id) linhas.push('', `Ver orçamento em PDF: ${SITE}/?orcamento=${orcamento.id}`);
   return linhas.join('\n');
 }
 
