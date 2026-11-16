@@ -27,10 +27,16 @@ const isLowStock = (item) => item.stock <= item.minimum;
 
 function SalesCard() {
   const [vendas, setVendas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
 
   // Fica atualizando as vendas sozinho
   useEffect(() => {
-    const parar = acompanharVendas(setVendas, (e) => console.error('Erro ao carregar vendas:', e));
+    const parar = acompanharVendas((dados) => {
+      setVendas(dados); setCarregando(false); setErro('');
+    }, () => {
+      setCarregando(false); setErro('Não foi possível consultar as vendas. Confira a conexão e as permissões.');
+    });
     return parar;
   }, []);
 
@@ -48,10 +54,10 @@ function SalesCard() {
     <View style={styles.salesCard}>
       <Text style={styles.salesEyebrow}>VENDAS DE HOJE</Text>
       <Text style={styles.salesAmount}>
-        {(total / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+        {erro || carregando ? '—' : (total / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
       </Text>
       <Text style={styles.mutedOnDark}>
-        {resumo}
+        {erro || (carregando ? 'Carregando vendas...' : resumo)}
       </Text>
     </View>
   );

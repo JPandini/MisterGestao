@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react';
-import { Alert, FlatList, View, Text, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, View, Text, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../components/Header';
 import Button from '../components/Button';
+import FormField from '../components/FormField';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { salvarOrcamento } from '../services/orcamentos';
+import { dataLocal, lerValidade, parsePriceToCents, validadePadrao } from '../utils/orcamento';
 
 const formatCurrency = (cents) =>
   (Number(cents || 0) / 100).toLocaleString('pt-BR', {
@@ -44,18 +46,39 @@ export default function Carrinho({ navigation }) {
   const { itens, total, alterarQuantidade, remover, limpar } = useCart();
   const userName = user?.displayName || user?.email?.split('@')[0] || 'Equipe';
   const [salvando, setSalvando] = useState(false);
+  const [desconto, setDesconto] = useState('');
+  const [frete, setFrete] = useState('');
+  const [validade, setValidade] = useState(() => validadePadrao().split('-').reverse().join('/'));
+  const [observacoes, setObservacoes] = useState('');
+  const [erros, setErros] = useState({});
+  const [erroEnvio, setErroEnvio] = useState('');
   const envioEmAndamento = useRef(false);
+  const descontoCentavos = parsePriceToCents(desconto || '0');
+  const freteCentavos = parsePriceToCents(frete || '0');
+  const totalValido = descontoCentavos !== null && freteCentavos !== null && descontoCentavos <= total
+    && Number.isSafeInteger(total - descontoCentavos + freteCentavos);
+  const totalOrcamento = totalValido ? total - descontoCentavos + freteCentavos : null;
 
   async function gerarOrcamento() {
     if (envioEmAndamento.current) return;
+    const novosErros = {};
+    const data = lerValidade(validade);
+    if (descontoCentavos === null) novosErros.desconto = 'Use o formato 10,00.';
+    else if (descontoCentavos > total) novosErros.desconto = 'O desconto não pode superar o subtotal.';
+    if (freteCentavos === null) novosErros.frete = 'Use o formato 10,00.';
+    if (!data || data < dataLocal()) novosErros.validade = 'Informe uma data a partir de hoje (DD/MM/AAAA).';
+    setErros(novosErros);
+    setErroEnvio('');
+    if (Object.keys(novosErros).length || !totalValido) return;
     envioEmAndamento.current = true;
     setSalvando(true);
     try {
-      const id = await salvarOrcamento({ itens }, user?.uid);
-
+      const id = await salvarOrcamento({ itens, desconto: descontoCentavos, frete: freteCentavos,
+        validade: data, observacoes }, user?.uid);
+      limpar();
       navigation.navigate('Orcamento', { id });
     } catch (erro) {
-      Alert.alert('Não foi possível salvar', erro.code === 'permission-denied'
+      setErroEnvio(erro.code === 'permission-denied'
         ? 'O banco recusou o orçamento. Confira sua sessão e as permissões no Firebase.'
         : erro.message || 'Verifique sua conexão e tente novamente.');
     } finally {
@@ -68,7 +91,7 @@ export default function Carrinho({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <Header userName={userName} />
 
-      <View style={styles.content}>
+      <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <TouchableOpacity style={styles.voltar} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={16} color="#626975" />
           <Text style={styles.voltarTexto}>Voltar</Text>
@@ -84,19 +107,34 @@ export default function Carrinho({ navigation }) {
           )}
           ListEmptyComponent={<Text style={styles.vazio}>Nenhum produto no carrinho.</Text>}
           contentContainerStyle={styles.lista}
-        />
-
-        {itens.length > 0 ? (
+          keyboardShouldPersistTaps="handled"
+          ListFooterComponent={itens.length > 0 ? (
           <View style={styles.rodape}>
+            <Text style={styles.totalLabel}>Condições do orçamento</Text>
+            <FormField label="Validade" placeholder="DD/MM/AAAA" value={validade} onChangeText={setValidade}
+              keyboardType="numbers-and-punctuation" maxLength={10} editable={!salvando} error={erros.validade} />
+            <Text style={styles.medida}>Validade inicial de 7 dias. Você pode alterar a data.</Text>
+            <FormField label="Desconto (R$)" placeholder="0,00" value={desconto} onChangeText={setDesconto}
+              keyboardType="decimal-pad" maxLength={16} editable={!salvando} error={erros.desconto} />
+            <FormField label="Frete (R$)" placeholder="0,00" value={frete} onChangeText={setFrete}
+              keyboardType="decimal-pad" maxLength={16} editable={!salvando} error={erros.frete} />
+            <FormField label="Observações" optional placeholder="Condições de entrega, pagamento..." value={observacoes}
+              onChangeText={setObservacoes} maxLength={1000} editable={!salvando} />
+            <View style={styles.linhaTotal}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalLabel}>{formatCurrency(total)}</Text>
+            </View>
             <View style={styles.linhaTotal}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValor}>{formatCurrency(total)}</Text>
+              <Text style={styles.totalValor}>{totalOrcamento === null ? 'Confira os valores' : formatCurrency(totalOrcamento)}</Text>
             </View>
+            {erroEnvio ? <Text style={styles.erro} accessibilityRole="alert">{erroEnvio}</Text> : null}
             <Button title={salvando ? 'Salvando orçamento...' : 'Gerar orçamento'} loading={salvando} onPress={gerarOrcamento} />
             <Button title="Limpar carrinho" variant="secondary" onPress={limpar} disabled={salvando} />
           </View>
-        ) : null}
-      </View>
+          ) : null}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -133,6 +171,7 @@ const styles = StyleSheet.create({
   quantidade: { minWidth: 24, textAlign: 'center', fontSize: 15, fontWeight: '700' },
   remover: { marginLeft: 6, padding: 4 },
   vazio: { fontSize: 13, color: '#7E8086', textAlign: 'center', marginTop: 32 },
+  erro: { fontSize: 14, color: '#B42318' },
   rodape: { gap: 12, paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#E9EAED' },
   linhaTotal: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontSize: 16, fontWeight: '600', color: '#151619' },

@@ -15,9 +15,13 @@ import {
   TextInput,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Camera, CameraView } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
-import { createProduct, listarNomes } from '../services/products';
+import { createProduct, listarNomes, subscribeToNextProductCode } from '../services/products';
+import { productCodePrefix } from '../utils/productCodes';
+import { prepararFotoProduto } from '../utils/productPhoto';
+import { parsePriceToCents } from '../utils/money';
+import { parseProfitPercentage, updateProductPricing } from '../utils/productPricing';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import FormField from '../components/FormField';
@@ -28,27 +32,19 @@ const EMPTY_FORM = {
   brand: '',
   measure: '',
   price: '',
+  costPrice: '',
+  profitPercentage: '',
+  pricingSource: 'profitPercentage',
   stock: '',
   minimum: '',
-  code: '',
 };
 
-const PRICE_PATTERN = /^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})?$/;
 const INTEGER_PATTERN = /^\d+$/;
-
-const parsePriceToCents = (text) => {
-  const value = text.trim();
-  if (!PRICE_PATTERN.test(value)) return null;
-
-  const [whole, fraction = ''] = value.split(',');
-  const cents = Number(whole.replace(/\./g, '')) * 100 + Number((fraction + '00').slice(0, 2));
-
-  return Number.isSafeInteger(cents) ? cents : null;
-};
 
 const validate = (form, categorias, marcas) => {
   const errors = {};
   const priceInCents = parsePriceToCents(form.price);
+  const costInCents = parsePriceToCents(form.costPrice);
 
   if (!form.name.trim()) {
     errors.name = 'Informe o nome do produto.';
@@ -58,6 +54,8 @@ const validate = (form, categorias, marcas) => {
     errors.category = 'Selecione uma categoria.';
   } else if (!categorias.some((item) => item.name === form.category)) {
     errors.category = 'Selecione uma categoria cadastrada.';
+  } else {
+    try { productCodePrefix(form.category); } catch { errors.category = 'A categoria precisa conter letras.'; }
   }
 
   if (!form.brand) {
@@ -69,7 +67,12 @@ const validate = (form, categorias, marcas) => {
   if (priceInCents === null) {
     errors.price = 'Use o formato 54,90.';
   } else if (priceInCents <= 0) {
-    errors.price = 'O preço precisa ser maior que zero.';
+    errors.price = 'O valor de venda precisa ser maior que zero.';
+  }
+  if (costInCents === null) errors.costPrice = 'Use o formato 54,90.';
+  else if (costInCents <= 0) errors.costPrice = 'O valor de custo precisa ser maior que zero.';
+  if (parseProfitPercentage(form.profitPercentage) === null) {
+    errors.profitPercentage = 'Informe o percentual, como 25 ou 25,50, maior que -100%.';
   }
 
   if (!INTEGER_PATTERN.test(form.stock.trim()) || !Number.isSafeInteger(Number(form.stock))) {
@@ -207,56 +210,93 @@ export default function CadastroProdutoScreen({ navigation }) {
   const [categorias, setCategorias] = useState([]);
   const [selectAberto, setSelectAberto] = useState(null);
   const [foto, setFoto] = useState('');
-  const [cameraAberta, setCameraAberta] = useState(false);
-  const cameraRef = useRef(null);
+  const [processandoFoto, setProcessandoFoto] = useState(false);
+  const fotoEmAndamento = useRef(false);
+  const [preview, setPreview] = useState(null);
+  const [tentativaCodigo, setTentativaCodigo] = useState(0);
+  const categoryId = categorias.find((item) => item.name === form.category)?.id;
+  const codePreview = preview?.categoryId === categoryId ? preview : null;
+
+  useEffect(() => {
+    if (!categoryId) return;
+    return subscribeToNextProductCode({ id: categoryId, name: form.category }, (code) => {
+      setPreview({ categoryId, code });
+    }, (error) => {
+      setPreview({ categoryId, error: error.code === 'permission-denied'
+        ? 'O Firebase bloqueou a consulta do código. Publique as regras atualizadas e tente novamente.'
+        : 'Não foi possível consultar o próximo código. Confira a conexão e tente novamente.' });
+    });
+  }, [categoryId, form.category, tentativaCodigo]);
 
   useEffect(() => {
     const carregar = async () => {
       try {
-        setMarcas(await listarNomes('marcas'));
-        setCategorias(await listarNomes('categorias'));
-      } catch (e) {
-        console.error('Erro ao carregar marcas e categorias:', e);
+        const [brands, categories] = await Promise.all([listarNomes('marcas'), listarNomes('categorias')]);
+        setMarcas(brands);
+        setCategorias(categories);
+      } catch {
+        setNoticeType('error');
+        setNotice('Não foi possível carregar marcas e categorias. Volte e abra o cadastro novamente.');
       }
     };
     carregar();
   }, []);
 
-  const abrirCamera = async () => {
-    const { status } = await Camera.requestCameraPermissionsAsync();
-    if (status === 'granted') {
-      setCameraAberta(true);
-    } else {
-      setNoticeType('error');
-      setNotice('Acesso à câmera negado!');
-    }
-  };
-
-  const tirarFoto = async () => {
-    try {
-      const resultado = await cameraRef.current.takePictureAsync({ quality: 0.1, base64: true });
-      const imagem = resultado.base64.startsWith('data:')
-        ? resultado.base64
-        : `data:image/jpg;base64,${resultado.base64}`;
-
-      if (imagem.length > 900000) {
-        setNoticeType('error');
-        setNotice('A foto ficou muito grande. Tente de novo.');
-      } else {
-        setFoto(imagem);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    let ativa = true;
+    async function recuperarFoto() {
+      try {
+        const resultado = await ImagePicker.getPendingResultAsync();
+        if (resultado && !resultado.canceled && resultado.assets?.[0]) {
+          const photo = await prepararFotoProduto(resultado.assets[0]);
+          if (ativa) setFoto(photo);
+        }
+      } catch {
+        if (ativa) {
+          setNoticeType('error');
+          setNotice('Não foi possível recuperar a última foto. Escolha a imagem novamente.');
+        }
       }
-    } catch (e) {
-      console.error('Erro ao tirar foto:', e);
     }
-    setCameraAberta(false);
+    recuperarFoto();
+    return () => { ativa = false; };
+  }, []);
+
+  const escolherFoto = async (camera = false) => {
+    if (fotoEmAndamento.current || saving.current) return;
+    fotoEmAndamento.current = true;
+    setProcessandoFoto(true);
+    setNotice('');
+    try {
+      // Na web, abre o seletor diretamente no clique, sem perder a ativação do navegador.
+      if (camera && Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) throw new Error('Permita o acesso à câmera nas configurações ou escolha uma foto da galeria.');
+      }
+      const options = { mediaTypes: ['images'], quality: 0.8 };
+      const resultado = camera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      if (!resultado.canceled) setFoto(await prepararFotoProduto(resultado.assets?.[0]));
+    } catch (error) {
+      setNoticeType('error');
+      setNotice(error.message || 'Não foi possível carregar a foto. Tente novamente.');
+    } finally {
+      fotoEmAndamento.current = false;
+      setProcessandoFoto(false);
+    }
   };
 
   const updateField = (field) => (value) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
+  const updatePricing = (field) => (value) => {
+    setForm((current) => updateProductPricing(current, field, value));
+  };
 
   const handleSave = async () => {
-    if (saving.current) return;
+    if (saving.current || fotoEmAndamento.current) return;
 
     const nextErrors = validate(form, categorias, marcas);
 
@@ -265,6 +305,11 @@ export default function CadastroProdutoScreen({ navigation }) {
     setNoticeType('success');
 
     if (Object.keys(nextErrors).length > 0) return;
+    if (!codePreview?.code) {
+      setNoticeType('error');
+      setNotice('Aguarde a geração do código automático ou tente consultar novamente.');
+      return;
+    }
 
     if (!user?.uid) {
       setNoticeType('error');
@@ -281,10 +326,11 @@ export default function CadastroProdutoScreen({ navigation }) {
         {
           name: form.name,
           category: form.category,
+          categoryId,
           brand: form.brand,
           measure: form.measure,
-          code: form.code,
           price: parsePriceToCents(form.price),
+          costPrice: parsePriceToCents(form.costPrice),
           stock: Number(form.stock),
           minimum: Number(form.minimum),
           photo: foto,
@@ -300,7 +346,7 @@ export default function CadastroProdutoScreen({ navigation }) {
       setNoticeType('error');
       setNotice(
         error?.code === 'permission-denied'
-          ? 'O banco recusou o cadastro. Entre novamente e tente salvar o produto.'
+          ? 'O Firebase negou acesso ao cadastro ou ao código automático. Confira se as regras atualizadas de produtos e sequências foram publicadas no Console do Firebase.'
           : 'Não foi possível salvar o produto. Verifique a conexão e tente novamente.'
       );
     } finally {
@@ -308,18 +354,6 @@ export default function CadastroProdutoScreen({ navigation }) {
       setIsSaving(false);
     }
   };
-
-  if (cameraAberta) {
-    return (
-      <View style={styles.flex}>
-        <CameraView ref={cameraRef} style={styles.flex} facing="back" />
-        <View style={styles.cameraBotoes}>
-          <Button title="Tirar foto" onPress={tirarFoto} />
-          <Button title="Cancelar" variant="secondary" onPress={() => setCameraAberta(false)} />
-        </View>
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -392,14 +426,41 @@ export default function CadastroProdutoScreen({ navigation }) {
           />
 
           <FormField
-            label="Preço (R$)"
+            label="Valor de custo (R$)"
+            placeholder="Ex.: 100,00"
+            keyboardType="decimal-pad"
+            value={form.costPrice}
+            onChangeText={updatePricing('costPrice')}
+            maxLength={16}
+            editable={!isSaving}
+            error={errors.costPrice}
+            accessibilityLabel="Valor de custo do produto"
+          />
+
+          <FormField
+            label="Valor de venda (R$)"
             placeholder="54,90"
             keyboardType="decimal-pad"
             value={form.price}
-            onChangeText={updateField('price')}
+            onChangeText={updatePricing('price')}
+            maxLength={16}
             editable={!isSaving}
             error={errors.price}
+            accessibilityLabel="Valor de venda do produto"
           />
+
+          <FormField
+            label="Lucro (%)"
+            placeholder="Ex.: 25"
+            keyboardType="decimal-pad"
+            value={form.profitPercentage}
+            onChangeText={updatePricing('profitPercentage')}
+            maxLength={12}
+            editable={!isSaving}
+            error={errors.profitPercentage}
+            accessibilityLabel="Porcentagem de lucro sobre o custo"
+          />
+          <Text style={styles.pricingHelp}>Lucro sobre o custo: custo de R$ 100 + 25% = venda de R$ 125.</Text>
 
           <View style={styles.row}>
             <View style={styles.rowItem}>
@@ -427,29 +488,35 @@ export default function CadastroProdutoScreen({ navigation }) {
           </View>
 
           <FormField
-            label="Código"
-            optional
-            placeholder="Ex.: CAM-003"
-            autoCapitalize="characters"
-            value={form.code}
-            onChangeText={updateField('code')}
-            editable={!isSaving}
+            label="Código automático"
+            placeholder={categoryId ? (codePreview?.error ? 'Código indisponível' : 'Gerando código...') : 'Selecione uma categoria'}
+            value={codePreview?.code || ''}
+            disabled
+            error={codePreview?.error}
+            accessibilityLabel="Código automático do produto"
           />
+          <Text style={styles.pageSubtitle}>Preenchido automaticamente pela categoria.</Text>
+          {codePreview?.error ? <Button title="Tentar gerar código novamente" variant="secondary"
+            onPress={() => { setPreview(null); setTentativaCodigo((value) => value + 1); }} /> : null}
 
           {foto ? <Image source={{ uri: foto }} style={styles.foto} /> : null}
           <Button
             title={foto ? 'Tirar outra foto' : 'Tirar foto'}
             variant="secondary"
-            onPress={abrirCamera}
-            disabled={isSaving}
+            onPress={() => escolherFoto(true)}
+            disabled={isSaving || processandoFoto}
             style={styles.secondaryButton}
           />
+          <Button title={processandoFoto ? 'Preparando foto...' : 'Escolher da galeria'} variant="secondary"
+            onPress={() => escolherFoto()} disabled={isSaving || processandoFoto} style={styles.secondaryButton} />
+          {foto ? <Button title="Remover foto" variant="secondary" onPress={() => setFoto('')}
+            disabled={isSaving || processandoFoto} style={styles.secondaryButton} /> : null}
 
           <Button
             title="Salvar produto"
             onPress={handleSave}
             loading={isSaving}
-            disabled={isSaving}
+            disabled={isSaving || processandoFoto || !codePreview?.code}
             style={styles.primaryButton}
           />
 
@@ -487,6 +554,7 @@ const styles = StyleSheet.create({
   pageSubtitle: { fontSize: 13, lineHeight: 18, color: '#7E8086', marginTop: 4 },
   row: { flexDirection: 'row', gap: 10 },
   rowItem: { flex: 1, minWidth: 0 },
+  pricingHelp: { fontSize: 12, lineHeight: 18, color: '#626975', marginBottom: 16 },
   primaryButton: { marginTop: 6 },
   secondaryButton: { marginTop: 10 },
   selectField: { marginBottom: 14, position: 'relative', zIndex: 1 },
@@ -553,7 +621,6 @@ const styles = StyleSheet.create({
   selectOptionTextSelected: { color: '#FFFFFF' },
   emptyOptions: { padding: 16, textAlign: 'center', color: '#7E8086' },
   foto: { width: 120, height: 120, borderRadius: 10, alignSelf: 'center' },
-  cameraBotoes: { gap: 10, padding: 16, backgroundColor: '#FFFFFF' },
   notice: { fontSize: 12, lineHeight: 17, color: '#626975', textAlign: 'center', marginTop: 14 },
   noticeError: { color: '#B42318' },
 });

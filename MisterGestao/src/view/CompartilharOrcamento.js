@@ -70,10 +70,17 @@ export default function CompartilharOrcamento({ route, navigation }) {
   }
 
   async function abrirPdf(dados) {
+    if (emAndamento.current) return;
+    emAndamento.current = true;
+    setOcupado(true);
+    setErroAcao('');
     try {
       await enviarPdfOrcamento(dados);
     } catch (e) {
-      console.error('Erro ao gerar o PDF:', e);
+      setErroAcao(e.message || 'Não foi possível gerar o PDF. Tente novamente.');
+    } finally {
+      emAndamento.current = false;
+      setOcupado(false);
     }
   }
 
@@ -88,10 +95,6 @@ export default function CompartilharOrcamento({ route, navigation }) {
       const escolhido = novo ? await salvarCliente(cliente, user?.uid) : cliente;
       const atualizado = await vincularClienteAoOrcamento(id, escolhido.id);
       setResultado({ id, orcamento: atualizado });
-      // No celular já abre o PDF para enviar ao cliente escolhido
-      if (Platform.OS !== 'web') {
-        abrirPdf(atualizado);
-      }
       listaRef.current?.scrollToOffset({ offset: 0, animated: true });
       if (novo) {
         setCadastrando(false);
@@ -159,7 +162,7 @@ export default function CompartilharOrcamento({ route, navigation }) {
             <View style={styles.cabecalho}>
               <Button title="Voltar" variant="secondary" onPress={() => navigation.goBack()} disabled={ocupado} />
               <Text style={styles.titulo}>Compartilhar orçamento</Text>
-              <Text style={styles.texto}>Escolha o cliente ou cadastre na hora. O orçamento será enviado como mensagem de texto.</Text>
+              <Text style={styles.texto}>Escolha o cliente ou cadastre na hora. Compartilhe o orçamento como PDF ou mensagem pelo WhatsApp.</Text>
               {!atual ? <ActivityIndicator color="#C94700" /> : null}
               {atual?.erro ? (
                 <View style={styles.card}>
@@ -174,6 +177,7 @@ export default function CompartilharOrcamento({ route, navigation }) {
                   <Text style={styles.subtitulo}>Enviar para</Text>
                   <Text style={styles.nome}>{orcamento.cliente.nome}</Text>
                   <Text style={styles.texto}>{contato}</Text>
+                  <Button title="Gerar / compartilhar PDF" variant="secondary" onPress={() => abrirPdf(orcamento)} disabled={ocupado} />
                   <Button title="Abrir WhatsApp" loading={ocupado} onPress={abrirWhatsApp} />
                   <Text style={styles.texto}>A mensagem abre preenchida. Confirme o envio no WhatsApp.</Text>
                   <Button title={verMensagem ? 'Ocultar mensagem' : 'Ver mensagem'} variant="secondary" onPress={() => setVerMensagem((valor) => !valor)} />

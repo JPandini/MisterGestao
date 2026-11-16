@@ -8,20 +8,11 @@ import Header from '../components/Header';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { acompanharOrcamentos } from '../services/orcamentos';
+import { statusOrcamento } from '../utils/orcamento';
 
 const dinheiro = (valor) => (Number(valor || 0) / 100).toLocaleString('pt-BR', {
   style: 'currency', currency: 'BRL',
 });
-
-function statusOrcamento(orcamento) {
-  if (orcamento.status === 'open') {
-    const hoje = new Date();
-    const dataLocal = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
-    return orcamento.validade && orcamento.validade < dataLocal ? 'Vencido' : 'Em aberto';
-  }
-  return { approved: 'Aprovado', cancelled: 'Cancelado', converted: 'Convertido em venda' }[orcamento.status]
-    || 'Status não informado';
-}
 
 function OrcamentoCard({ orcamento, onPress }) {
   const data = orcamento.createdAt?.toDate?.();

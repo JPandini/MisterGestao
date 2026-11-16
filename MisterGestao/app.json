@@ -26,6 +26,14 @@
     },
     "plugins": [
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O MisterGestão usa a câmera para fotografar os produtos.",
+          "photosPermission": "O MisterGestão usa suas fotos para cadastrar imagens dos produtos.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "O MisterGestão usa a câmera para tirar a foto dos produtos."
