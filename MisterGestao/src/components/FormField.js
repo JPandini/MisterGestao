@@ -1,6 +1,6 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
-export default function FormField({ label, error, optional = false, editable = true, ...inputProps }) {
+export default function FormField({ label, error, optional = false, editable = true, disabled = false, ...inputProps }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>
@@ -8,8 +8,10 @@ export default function FormField({ label, error, optional = false, editable = t
         {optional ? <Text style={styles.optional}> (opcional)</Text> : null}
       </Text>
       <TextInput
-        editable={editable}
-        style={[styles.input, error && styles.inputError]}
+        {...(Platform.OS === 'web' ? { disabled } : {})}
+        editable={editable && !disabled}
+        accessibilityState={{ disabled }}
+        style={[styles.input, disabled && styles.inputDisabled, error && styles.inputError]}
         placeholderTextColor="#9A9CA1"
         {...inputProps}
       />
@@ -33,5 +35,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   inputError: { borderColor: '#C94700' },
+  inputDisabled: { backgroundColor: '#ECEEF1', borderColor: '#D2D4D8', color: '#626975' },
   errorText: { fontSize: 11, color: '#C94700', marginTop: 5 },
 });

@@ -2,6 +2,7 @@ import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, runTransac
 
 import { db } from './firebase';
 import { PRODUCT_STORE_ID } from './products';
+import { dataLocal, dataValida, validadePadrao } from '../utils/orcamento';
 
 function getOrcamentosCollection() {
   if (!db) {
@@ -23,7 +24,7 @@ export function acompanharOrcamentos(onOrcamentos, onError) {
 
 // Preços, desconto e frete em centavos; validade no formato AAAA-MM-DD.
 export async function salvarOrcamento(orcamento, userId) {
-  const { itens, cliente = {}, desconto = 0, frete = 0, validade = '', observacoes = '' } = orcamento;
+  const { itens, cliente = {}, desconto = 0, frete = 0, validade = validadePadrao(), observacoes = '' } = orcamento;
 
   if (!userId) throw new Error('Entre novamente para salvar o orçamento.');
   if (!Array.isArray(itens) || itens.length === 0) {
@@ -34,6 +35,12 @@ export async function salvarOrcamento(orcamento, userId) {
     || !Number.isSafeInteger(item.quantidade) || item.quantidade < 1
   ))) {
     throw new Error('Confira os preços e as quantidades dos produtos no carrinho.');
+  }
+  if (new Set(itens.map((item) => item.id)).size !== itens.length) {
+    throw new Error('Há produtos repetidos no orçamento. Refaça o carrinho.');
+  }
+  if (!dataValida(validade) || validade < dataLocal()) {
+    throw new Error('Informe uma validade a partir de hoje, no formato DD/MM/AAAA.');
   }
 
   const subtotal = itens.reduce((soma, item) => soma + item.preco * item.quantidade, 0);
@@ -77,6 +84,28 @@ export async function buscarOrcamento(id) {
   if (!document.exists()) return null;
 
   return { ...document.data(), id: document.id };
+}
+
+export async function cancelarOrcamento(id, userId) {
+  if (!userId) throw new Error('Entre novamente para cancelar o orçamento.');
+  if (!id) throw new Error('Orçamento não encontrado.');
+  const referencia = doc(getOrcamentosCollection(), id);
+  const referenciaVenda = doc(db, 'lojas', PRODUCT_STORE_ID, 'vendas', id);
+  return runTransaction(db, async (transaction) => {
+    const document = await transaction.get(referencia);
+    const venda = await transaction.get(referenciaVenda);
+    if (!document.exists()) throw new Error('Orçamento não encontrado.');
+    const dados = document.data();
+    if (venda.exists() || dados.status === 'converted') {
+      throw new Error('Este orçamento já virou venda e não pode ser cancelado.');
+    }
+    if (dados.status === 'cancelled') return { ...dados, id };
+    if (dados.status !== 'open') throw new Error('Somente orçamentos em aberto podem ser cancelados.');
+    transaction.update(referencia, {
+      status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: userId,
+    });
+    return { ...dados, id, status: 'cancelled', cancelledBy: userId };
+  });
 }
 
 export async function vincularClienteAoOrcamento(id, clienteId) {

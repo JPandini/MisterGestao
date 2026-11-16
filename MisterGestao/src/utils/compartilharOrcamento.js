@@ -1,4 +1,5 @@
 import { normalizarTelefone } from './clientes';
+import { statusOrcamento } from './orcamento';
 
 export const SITE = 'https://mistergestao-5ebe1.web.app';
 
@@ -9,6 +10,7 @@ const dinheiro = (valor) => (Number(valor || 0) / 100).toLocaleString('pt-BR', {
 export function montarMensagemOrcamento(orcamento) {
   const linhas = [
     '*Mister MotoPlace*',
+    `Status: ${statusOrcamento(orcamento)}`,
     '',
     `Cliente: ${orcamento.cliente.nome}`,
     '',

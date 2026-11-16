@@ -1,14 +1,20 @@
 import {
   addDoc,
   collection,
+  doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
+  where,
 } from 'firebase/firestore';
 
 import { db } from './firebase';
+import { formatProductCode, productCodePrefix, validateProductPhoto } from '../utils/productCodes';
+import { calculateProfitPercentage } from '../utils/productPricing';
 
 export const PRODUCT_STORE_ID = 'mister-motoplace';
 
@@ -35,22 +41,80 @@ export function subscribeToProducts(onProducts, onError) {
   );
 }
 
-export async function createProduct(product, userId) {
-  const document = await addDoc(getProductsCollection(), {
-    name: product.name.trim(),
-    category: product.category.trim(),
-    brand: product.brand.trim(),
-    measure: product.measure.trim(),
-    code: product.code.trim(),
-    price: product.price,
-    stock: product.stock,
-    minimum: product.minimum,
-    createdAt: serverTimestamp(),
-    createdBy: userId,
-    ...(product.photo ? { photo: product.photo } : {}),
-  });
+function getCategorySequenceRef(categoryId) {
+  if (!categoryId || typeof categoryId !== 'string' || categoryId.includes('/')) {
+    throw new Error('Selecione uma categoria cadastrada.');
+  }
+  getProductsCollection();
+  return doc(db, 'lojas', PRODUCT_STORE_ID, 'sequenciasProdutos', categoryId);
+}
 
-  return document.id;
+async function getPreviousCategoryNumber(sequenceRef, category, prefix) {
+  if ((await getDoc(sequenceRef)).exists()) return 0;
+  // Continua os códigos antigos somente desta categoria, mesmo quando o prefixo se repete.
+  const existing = await getDocs(query(getProductsCollection(), where('category', '==', category.trim())));
+  return existing.docs.reduce((max, item) => {
+    const code = item.data().code || '';
+    const suffix = code.startsWith(`${prefix}-`) ? code.slice(4) : '';
+    const number = /^\d+$/.test(suffix) ? Number(suffix) : 0;
+    return Number.isSafeInteger(number) ? Math.max(max, number) : max;
+  }, 0);
+}
+
+// Consultar o próximo código não reserva nem consome o número.
+export function subscribeToNextProductCode(category, onCode, onError) {
+  let active = true;
+  let unsubscribe;
+  async function subscribe() {
+    try {
+      const prefix = productCodePrefix(category.name);
+      const sequenceRef = getCategorySequenceRef(category.id);
+      const previousMax = await getPreviousCategoryNumber(sequenceRef, category.name, prefix);
+      if (!active) return;
+      unsubscribe = onSnapshot(sequenceRef, (snapshot) => {
+        if (active) onCode(formatProductCode(prefix, Math.max(snapshot.data()?.lastNumber || 0, previousMax) + 1));
+      }, (error) => { if (active) onError(error); });
+    } catch (error) {
+      if (active) onError(error);
+    }
+  }
+  subscribe();
+  return () => { active = false; unsubscribe?.(); };
+}
+
+export async function createProduct(product, userId) {
+  if (!userId) throw new Error('Entre novamente para cadastrar produtos.');
+  const profitPercentage = calculateProfitPercentage(product.costPrice, product.price);
+  if (profitPercentage === null) throw new Error('Confira os valores de custo e venda do produto.');
+  validateProductPhoto(product.photo);
+  const prefix = productCodePrefix(product.category);
+  const products = getProductsCollection();
+  const sequenceRef = getCategorySequenceRef(product.categoryId);
+  const productRef = doc(products);
+  const previousMax = await getPreviousCategoryNumber(sequenceRef, product.category, prefix);
+  return runTransaction(db, async (transaction) => {
+    const sequence = await transaction.get(sequenceRef);
+    const number = Math.max(sequence.data()?.lastNumber || 0, previousMax) + 1;
+    const code = formatProductCode(prefix, number);
+    transaction.set(sequenceRef, { prefix, lastNumber: number, code, productId: productRef.id });
+    transaction.set(productRef, {
+      name: product.name.trim(),
+      category: product.category.trim(),
+      categoryId: product.categoryId,
+      brand: product.brand.trim(),
+      measure: product.measure.trim(),
+      code,
+      price: product.price,
+      costPrice: product.costPrice,
+      profitPercentage,
+      stock: product.stock,
+      minimum: product.minimum,
+      createdAt: serverTimestamp(),
+      createdBy: userId,
+      ...(product.photo ? { photo: product.photo } : {}),
+    });
+    return productRef.id;
+  });
 }
 
 // Marcas e categorias (colecao = 'marcas' ou 'categorias')

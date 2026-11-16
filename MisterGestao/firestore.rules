@@ -8,21 +8,34 @@ service cloud.firestore {
 
     function validProduct() {
       return request.resource.data.keys().hasAll([
-          'name', 'category', 'brand', 'measure', 'code',
-          'price', 'stock', 'minimum', 'createdAt', 'createdBy'
+          'name', 'category', 'categoryId', 'brand', 'measure', 'code',
+          'price', 'costPrice', 'profitPercentage', 'stock', 'minimum', 'createdAt', 'createdBy'
         ])
         && request.resource.data.keys().hasOnly([
-          'name', 'category', 'brand', 'measure', 'code',
-          'price', 'stock', 'minimum', 'createdAt', 'createdBy', 'photo'
+          'name', 'category', 'categoryId', 'brand', 'measure', 'code',
+          'price', 'costPrice', 'profitPercentage', 'stock', 'minimum', 'createdAt', 'createdBy', 'photo'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.category is string
+        && request.resource.data.categoryId is string
+        && request.resource.data.category
+          == get(/databases/$(database)/documents/lojas/mister-motoplace/categorias/$(request.resource.data.categoryId)).data.name
         && request.resource.data.brand is string
         && request.resource.data.measure is string
         && request.resource.data.code is string
+        && request.resource.data.code.matches('[A-Z]{3}-[0-9]{3,}')
+        && (!('photo' in request.resource.data)
+          || (request.resource.data.photo is string
+            && request.resource.data.photo.size() <= 700000
+            && request.resource.data.photo.matches('data:image/jpeg;base64,.*')))
         && request.resource.data.price is int
         && request.resource.data.price > 0
+        && request.resource.data.costPrice is int
+        && request.resource.data.costPrice > 0
+        && request.resource.data.profitPercentage is number
+        && request.resource.data.profitPercentage >= -100
+        && request.resource.data.profitPercentage <= 90071992547409
         && request.resource.data.stock is int
         && request.resource.data.stock >= 0
         && request.resource.data.minimum is int
@@ -41,7 +54,9 @@ service cloud.firestore {
 
     match /lojas/mister-motoplace/produtos/{productId} {
       allow read: if signedIn();
-      allow create: if signedIn() && validProduct();
+      allow create: if signedIn() && validProduct()
+        && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/sequenciasProdutos/$(request.resource.data.categoryId)).data.productId == productId
+        && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/sequenciasProdutos/$(request.resource.data.categoryId)).data.code == request.resource.data.code;
       // Venda: só pode baixar o estoque
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
@@ -49,6 +64,40 @@ service cloud.firestore {
         && request.resource.data.stock >= 0
         && request.resource.data.stock < resource.data.stock;
       allow delete: if false;
+    }
+
+    match /lojas/mister-motoplace/sequenciasProdutos/{categoryId} {
+      function validSequence() {
+        let dados = request.resource.data;
+        let prefix = dados.prefix;
+        let numero = dados.lastNumber;
+        let sufixo = numero < 10 ? '00' + string(numero)
+          : (numero < 100 ? '0' + string(numero) : string(numero));
+        return prefix.matches('[A-Z]{3}')
+          && dados.keys().hasAll(['prefix', 'lastNumber', 'code', 'productId'])
+          && dados.keys().hasOnly(['prefix', 'lastNumber', 'code', 'productId'])
+          && numero is int && numero > 0 && numero <= 999999999
+          && dados.code == prefix + '-' + sufixo
+          && dados.productId is string
+          && !exists(/databases/$(database)/documents/lojas/mister-motoplace/produtos/$(dados.productId))
+          && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/produtos/$(dados.productId)).data.categoryId == categoryId
+          && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/produtos/$(dados.productId)).data.code == dados.code;
+      }
+      allow read: if signedIn();
+      // A primeira sequência pode continuar códigos manuais anteriores.
+      allow create: if signedIn() && validSequence();
+      allow update: if signedIn() && validSequence()
+        && request.resource.data.prefix == resource.data.prefix
+        && request.resource.data.lastNumber == resource.data.lastNumber + 1;
+      allow delete: if false;
+    }
+
+    // A validade dura até o fim do dia no horário da loja (Brasília, UTC-3).
+    function withinValidity(dados) {
+      return !('validade' in dados) || dados.validade == ''
+        || (dados.validade is string && dados.validade.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          && request.time < timestamp.date(int(dados.validade.split('-')[0]),
+            int(dados.validade.split('-')[1]), int(dados.validade.split('-')[2])) + duration.value(27, 'h'));
     }
 
     match /lojas/mister-motoplace/vendas/{vendaId} {
@@ -59,6 +108,7 @@ service cloud.firestore {
         && request.resource.data.orcamentoId == vendaId
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
+        && withinValidity(get(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(vendaId)).data)
         && get(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(request.resource.data.orcamentoId)).data.status == 'open'
         && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(request.resource.data.orcamentoId)).data.status == 'converted'
         && request.resource.data.total
@@ -105,11 +155,16 @@ service cloud.firestore {
         && request.resource.data.itens is list
         && request.resource.data.itens.size() > 0
         && request.resource.data.subtotal is int
+        && request.resource.data.subtotal >= 0
         && request.resource.data.desconto is int
         && request.resource.data.desconto >= 0
+        && request.resource.data.desconto <= request.resource.data.subtotal
         && request.resource.data.frete is int
         && request.resource.data.frete >= 0
         && request.resource.data.total is int
+        && request.resource.data.validade is string
+        && request.resource.data.validade.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+        && withinValidity(request.resource.data)
         && request.resource.data.total
           == request.resource.data.subtotal
             - request.resource.data.desconto
@@ -119,8 +174,18 @@ service cloud.firestore {
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && resource.data.status == 'open'
+        && withinValidity(resource.data)
         && request.resource.data.status == 'converted'
         && existsAfter(/databases/$(database)/documents/lojas/mister-motoplace/vendas/$(orcamentoId));
+
+      // Cancelamento mantém o orçamento e seus valores, sem criar venda ou alterar estoque.
+      allow update: if signedIn()
+        && resource.data.status == 'open'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy'])
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.cancelledAt == request.time
+        && request.resource.data.cancelledBy == request.auth.uid
+        && !existsAfter(/databases/$(database)/documents/lojas/mister-motoplace/vendas/$(orcamentoId));
 
       // A escolha do destinatário só pode alterar o cliente, preservando itens e valores.
       allow update: if signedIn()
