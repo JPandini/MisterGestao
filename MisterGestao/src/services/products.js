@@ -4,11 +4,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   orderBy,
   query,
   runTransaction,
   serverTimestamp,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 
@@ -128,5 +130,12 @@ export async function salvarNome(colecao, nome, userId) {
     name: nome,
     createdAt: serverTimestamp(),
     createdBy: userId,
+  });
+}
+
+// Entrada de mercadoria: soma a quantidade ao estoque do produto
+export async function aumentarEstoque(productId, quantidade) {
+  await updateDoc(doc(db, 'lojas', PRODUCT_STORE_ID, 'produtos', productId), {
+    stock: increment(quantidade),
   });
 }

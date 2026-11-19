@@ -17,6 +17,7 @@ import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { useCart } from '../context/CartContext';
+import { aumentarEstoque } from '../services/products';
 
 const formatCurrency = (cents) =>
   (Number(cents || 0) / 100).toLocaleString('pt-BR', {
@@ -37,6 +38,31 @@ const matchesSearch = (product, query) => {
 
 function ProductCard({ product, onAdd }) {
   const stockLabel = isLowStock(product) ? 'Estoque baixo' : 'Em estoque';
+  const [entradaAberta, setEntradaAberta] = useState(false);
+  const [quantidade, setQuantidade] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [mensagem, setMensagem] = useState('');
+
+  const salvarEntrada = async () => {
+    const numero = Number(quantidade);
+    if (!Number.isInteger(numero) || numero < 1) {
+      setMensagem('Digite uma quantidade maior que zero.');
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      await aumentarEstoque(product.id, numero);
+      setMensagem(`+${numero} un. no estoque.`);
+      setQuantidade('');
+      setEntradaAberta(false);
+    } catch (e) {
+      console.error('Erro ao aumentar o estoque:', e);
+      setMensagem('Não foi possível salvar a entrada.');
+    } finally {
+      setSalvando(false);
+    }
+  };
 
   return (
     <View style={styles.card}>
@@ -62,11 +88,33 @@ function ProductCard({ product, onAdd }) {
         <Text style={styles.stockText}>
           {stockLabel} · {product.stock} un.
         </Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => onAdd(product)} activeOpacity={0.7}>
-          <Feather name="plus" size={20} color="#C94700" />
-          <Text style={styles.addText}>Adicionar</Text>
-        </TouchableOpacity>
+        <View style={styles.cardActions}>
+          <TouchableOpacity style={styles.addButton} onPress={() => setEntradaAberta(!entradaAberta)} activeOpacity={0.7}>
+            <Feather name="package" size={18} color="#626975" />
+            <Text style={styles.entradaText}>Entrada</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addButton} onPress={() => onAdd(product)} activeOpacity={0.7}>
+            <Feather name="plus" size={20} color="#C94700" />
+            <Text style={styles.addText}>Adicionar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {entradaAberta ? (
+        <View style={styles.entrada}>
+          <TextInput
+            style={styles.entradaInput}
+            placeholder="Quantidade que chegou"
+            placeholderTextColor="#787B81"
+            keyboardType="number-pad"
+            value={quantidade}
+            onChangeText={setQuantidade}
+            editable={!salvando}
+          />
+          <Button title="Salvar" onPress={salvarEntrada} loading={salvando} disabled={salvando} style={styles.entradaBotao} />
+        </View>
+      ) : null}
+      {mensagem ? <Text style={styles.entradaMensagem}>{mensagem}</Text> : null}
     </View>
   );
 }
@@ -331,6 +379,21 @@ const styles = StyleSheet.create({
   },
   stockText: { fontSize: 11, lineHeight: 15, fontWeight: '500', color: '#1C8856' },
   addButton: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  entradaText: { fontSize: 13, lineHeight: 16, fontWeight: '600', color: '#626975' },
+  entrada: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
+  entradaInput: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#DEE0E4',
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#151619',
+  },
+  entradaBotao: { minHeight: 44 },
+  entradaMensagem: { fontSize: 12, color: '#626975', paddingHorizontal: 12, paddingBottom: 10 },
   addText: { fontSize: 13, lineHeight: 16, fontWeight: '600', color: '#C94700' },
   emptyText: {
     fontSize: 13,
