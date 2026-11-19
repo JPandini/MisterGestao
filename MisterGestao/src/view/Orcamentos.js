@@ -10,6 +10,15 @@ import { useAuth } from '../context/AuthContext';
 import { acompanharOrcamentos } from '../services/orcamentos';
 import { statusOrcamento } from '../utils/orcamento';
 
+// Botões de filtro: o nome que aparece e o status que ele mostra
+const FILTROS = [
+  { nome: 'Todos', status: '' },
+  { nome: 'Em aberto', status: 'Em aberto' },
+  { nome: 'Vendidos', status: 'Convertido em venda' },
+  { nome: 'Cancelados', status: 'Cancelado' },
+  { nome: 'Vencidos', status: 'Vencido' },
+];
+
 const dinheiro = (valor) => (Number(valor || 0) / 100).toLocaleString('pt-BR', {
   style: 'currency', currency: 'BRL',
 });
@@ -49,6 +58,7 @@ export default function Orcamentos({ navigation }) {
   const { user } = useAuth();
   const [orcamentos, setOrcamentos] = useState([]);
   const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [tentativa, setTentativa] = useState(0);
@@ -93,7 +103,8 @@ export default function Orcamentos({ navigation }) {
 
   const termo = busca.trim().toLocaleLowerCase('pt-BR');
   const filtrados = orcamentos.filter((orcamento) => (
-    [orcamento.id, orcamento.cliente?.nome, orcamento.cliente?.contato].some((valor) => (
+    (!filtro || statusOrcamento(orcamento) === filtro)
+    && [orcamento.id, orcamento.cliente?.nome, orcamento.cliente?.contato].some((valor) => (
       String(valor || '').toLocaleLowerCase('pt-BR').includes(termo)
     ))
   ));
@@ -118,6 +129,17 @@ export default function Orcamentos({ navigation }) {
             accessibilityLabel="Buscar orçamento por número, cliente ou contato"
             autoCorrect={false}
           />
+          <View style={styles.filtros}>
+            {FILTROS.map((item) => (
+              <TouchableOpacity
+                key={item.nome}
+                style={[styles.filtro, filtro === item.status && styles.filtroAtivo]}
+                onPress={() => setFiltro(item.status)}
+              >
+                <Text style={[styles.filtroTexto, filtro === item.status && styles.filtroTextoAtivo]}>{item.nome}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
         {carregando ? (
           <View style={styles.estado}>
@@ -168,6 +190,11 @@ const styles = StyleSheet.create({
   card: { padding: 16, gap: 8, borderRadius: 12, borderWidth: 1, borderColor: '#DEE0E4', backgroundColor: '#FFFFFF' },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   numero: { flex: 1, fontSize: 12, color: '#626975', minWidth: 120 },
+  filtros: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filtro: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: '#DEE0E4', backgroundColor: '#FFFFFF' },
+  filtroAtivo: { backgroundColor: '#C94700', borderColor: '#C94700' },
+  filtroTexto: { fontSize: 13, color: '#626975' },
+  filtroTextoAtivo: { color: '#FFFFFF', fontWeight: '700' },
   status: { fontSize: 12, fontWeight: '600', color: '#C94700', backgroundColor: '#FFF0E6', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6 },
   nome: { fontSize: 16, fontWeight: '700', color: '#151619' },
   rodapeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#E9EAED', paddingTop: 12, marginTop: 4 },

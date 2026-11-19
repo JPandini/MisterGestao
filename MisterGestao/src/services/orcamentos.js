@@ -39,8 +39,8 @@ export async function salvarOrcamento(orcamento, userId) {
   if (new Set(itens.map((item) => item.id)).size !== itens.length) {
     throw new Error('Há produtos repetidos no orçamento. Refaça o carrinho.');
   }
-  if (!dataValida(validade) || validade < dataLocal()) {
-    throw new Error('Informe uma validade a partir de hoje, no formato DD/MM/AAAA.');
+  if (!dataValida(validade) || validade < dataLocal() || validade > validadePadrao()) {
+    throw new Error('O orçamento vale no máximo 7 dias.');
   }
 
   const subtotal = itens.reduce((soma, item) => soma + item.preco * item.quantidade, 0);

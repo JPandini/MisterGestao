@@ -35,16 +35,6 @@ const matchesSearch = (product, query) => {
   );
 };
 
-function Barcode({ color, height }) {
-  return (
-    <View style={[styles.barcode, { height }]}>
-      {[2, 1, 2, 2, 1, 2].map((width, index) => (
-        <View key={index} style={{ width, height, backgroundColor: color }} />
-      ))}
-    </View>
-  );
-}
-
 function ProductCard({ product, onAdd }) {
   const stockLabel = isLowStock(product) ? 'Estoque baixo' : 'Em estoque';
 
@@ -179,9 +169,6 @@ export default function MisterGestaoProdutos({ navigation }) {
               Filtrar estoque baixo
             </Text>
           </TouchableOpacity>
-          <View style={styles.filterBarcode}>
-            <Barcode color="#626975" height={16} />
-          </View>
         </View>
 
         {isLoading ? (
@@ -289,8 +276,6 @@ const styles = StyleSheet.create({
   filterIcon: { transform: [{ rotate: '90deg' }] },
   filterText: { fontSize: 12, color: '#8F9297' },
   filterTextActive: { color: '#C94700', fontWeight: '600' },
-  filterBarcode: { marginLeft: 14 },
-  barcode: { flexDirection: 'row', gap: 2 },
   productList: { gap: 15, marginTop: 19 },
   card: {
     borderRadius: 12,

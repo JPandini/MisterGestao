@@ -174,7 +174,6 @@ export default function MisterGestaoHome({ navigation }) {
 
         <View style={styles.actionsRow}>
           <ActionCard icon="plus" title="Nova venda" description="Começar venda" accent onPress={() => navigation.navigate('Venda')} />
-          <ActionCard icon="barcode-scan" title="Escanear" description="Encontrar produto" disabled />
         </View>
 
         <View style={styles.sectionHeader}>

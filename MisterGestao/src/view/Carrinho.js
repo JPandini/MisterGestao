@@ -8,7 +8,7 @@ import FormField from '../components/FormField';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { salvarOrcamento } from '../services/orcamentos';
-import { dataLocal, lerValidade, parsePriceToCents, validadePadrao } from '../utils/orcamento';
+import { parsePriceToCents, validadePadrao } from '../utils/orcamento';
 
 const formatCurrency = (cents) =>
   (Number(cents || 0) / 100).toLocaleString('pt-BR', {
@@ -48,7 +48,8 @@ export default function Carrinho({ navigation }) {
   const [salvando, setSalvando] = useState(false);
   const [desconto, setDesconto] = useState('');
   const [frete, setFrete] = useState('');
-  const [validade, setValidade] = useState(() => validadePadrao().split('-').reverse().join('/'));
+  // O orçamento sempre vale 7 dias; depois disso ele vence
+  const validade = validadePadrao();
   const [observacoes, setObservacoes] = useState('');
   const [erros, setErros] = useState({});
   const [erroEnvio, setErroEnvio] = useState('');
@@ -62,11 +63,9 @@ export default function Carrinho({ navigation }) {
   async function gerarOrcamento() {
     if (envioEmAndamento.current) return;
     const novosErros = {};
-    const data = lerValidade(validade);
     if (descontoCentavos === null) novosErros.desconto = 'Use o formato 10,00.';
     else if (descontoCentavos > total) novosErros.desconto = 'O desconto não pode superar o subtotal.';
     if (freteCentavos === null) novosErros.frete = 'Use o formato 10,00.';
-    if (!data || data < dataLocal()) novosErros.validade = 'Informe uma data a partir de hoje (DD/MM/AAAA).';
     setErros(novosErros);
     setErroEnvio('');
     if (Object.keys(novosErros).length || !totalValido) return;
@@ -74,7 +73,7 @@ export default function Carrinho({ navigation }) {
     setSalvando(true);
     try {
       const id = await salvarOrcamento({ itens, desconto: descontoCentavos, frete: freteCentavos,
-        validade: data, observacoes }, user?.uid);
+        validade, observacoes }, user?.uid);
       limpar();
       navigation.navigate('Orcamento', { id });
     } catch (erro) {
@@ -111,9 +110,7 @@ export default function Carrinho({ navigation }) {
           ListFooterComponent={itens.length > 0 ? (
           <View style={styles.rodape}>
             <Text style={styles.totalLabel}>Condições do orçamento</Text>
-            <FormField label="Validade" placeholder="DD/MM/AAAA" value={validade} onChangeText={setValidade}
-              keyboardType="numbers-and-punctuation" maxLength={10} editable={!salvando} error={erros.validade} />
-            <Text style={styles.medida}>Validade inicial de 7 dias. Você pode alterar a data.</Text>
+            <Text style={styles.medida}>Válido até {validade.split('-').reverse().join('/')} (7 dias). Depois disso o orçamento vence.</Text>
             <FormField label="Desconto (R$)" placeholder="0,00" value={desconto} onChangeText={setDesconto}
               keyboardType="decimal-pad" maxLength={16} editable={!salvando} error={erros.desconto} />
             <FormField label="Frete (R$)" placeholder="0,00" value={frete} onChangeText={setFrete}
