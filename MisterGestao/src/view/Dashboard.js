@@ -121,7 +121,7 @@ export default function Dashboard({ navigation }) {
 
         <Text style={styles.secao}>Estoque por semana</Text>
         {!loading && semanasEstoque.length === 0 ? (
-          <Text style={styles.vazio}>Nenhuma entrada ou venda registrada ainda.</Text>
+          <Text style={styles.vazio}>Não houve movimentação no estoque.</Text>
         ) : null}
         {semanasEstoque.map((semana) => (
           <View key={semana.chave} style={styles.card}>
