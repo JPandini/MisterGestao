@@ -36,7 +36,7 @@ const matchesSearch = (product, query) => {
   );
 };
 
-function ProductCard({ product, onAdd }) {
+function ProductCard({ product, onAdd, userId }) {
   const stockLabel = isLowStock(product) ? 'Estoque baixo' : 'Em estoque';
   const [entradaAberta, setEntradaAberta] = useState(false);
   const [quantidade, setQuantidade] = useState('');
@@ -52,7 +52,7 @@ function ProductCard({ product, onAdd }) {
 
     setSalvando(true);
     try {
-      await aumentarEstoque(product.id, numero);
+      await aumentarEstoque(product, numero, userId);
       setMensagem(`+${numero} un. no estoque.`);
       setQuantidade('');
       setEntradaAberta(false);
@@ -232,7 +232,7 @@ export default function MisterGestaoProdutos({ navigation }) {
         ) : products.length > 0 ? (
           <View style={styles.productList}>
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} onAdd={adicionar} />
+              <ProductCard key={product.id} product={product} onAdd={adicionar} userId={user?.uid} />
             ))}
           </View>
         ) : (

@@ -48,12 +48,20 @@ export async function confirmarVenda(orcamentoId, userId) {
         throw new Error(`Estoque insuficiente de ${item.nome} (tem ${produto.stock}).`);
       }
 
-      novosEstoques.push({ ref: refProduto, stock: produto.stock - item.quantidade });
+      novosEstoques.push({ ref: refProduto, stock: produto.stock - item.quantidade, item });
     }
 
-    // 3. Baixa o estoque
+    // 3. Baixa o estoque e registra a saída de cada produto (para o dashboard)
     for (const produto of novosEstoques) {
       transacao.update(produto.ref, { stock: produto.stock });
+      transacao.set(doc(collection(db, 'lojas', PRODUCT_STORE_ID, 'movimentos')), {
+        produtoId: produto.item.id,
+        produto: produto.item.nome,
+        quantidade: -produto.item.quantidade,
+        tipo: 'venda',
+        createdAt: serverTimestamp(),
+        createdBy: userId,
+      });
     }
 
     // 4. Marca o orçamento como vendido
@@ -73,6 +81,17 @@ export async function confirmarVenda(orcamentoId, userId) {
 // Fica "ouvindo" as vendas e chama a função sempre que mudar
 export function acompanharVendas(aoReceber, aoDarErro) {
   const consulta = query(collection(db, 'lojas', PRODUCT_STORE_ID, 'vendas'), orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    consulta,
+    (resultado) => aoReceber(resultado.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    aoDarErro
+  );
+}
+
+// Fica "ouvindo" as entradas e saídas de estoque
+export function acompanharMovimentos(aoReceber, aoDarErro) {
+  const consulta = query(collection(db, 'lojas', PRODUCT_STORE_ID, 'movimentos'), orderBy('createdAt', 'desc'));
 
   return onSnapshot(
     consulta,
