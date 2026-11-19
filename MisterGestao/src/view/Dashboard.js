@@ -9,34 +9,86 @@ import { acompanharMovimentos, acompanharVendas } from '../services/vendas';
 const dinheiro = (centavos) => (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const diaMes = (data) => data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
-// Segunda-feira da semana de uma data (a semana vai de segunda a domingo)
-function inicioDaSemana(data) {
-  const segunda = new Date(data);
-  const diasDesdeSegunda = (segunda.getDay() + 6) % 7;
-  segunda.setDate(segunda.getDate() - diasDesdeSegunda);
-  segunda.setHours(0, 0, 0, 0);
-  return segunda;
-}
-
-// Junta os registros por semana, da mais recente para a mais antiga
-function agruparPorSemana(registros) {
+// Separa os registros por semana (de segunda a domingo), da mais nova para a mais antiga
+function separarPorSemana(registros) {
   const semanas = {};
 
   for (const registro of registros) {
-    const data = registro.createdAt?.toDate?.();
-    if (!data) continue;
+    if (!registro.createdAt) continue;
 
-    const segunda = inicioDaSemana(data);
+    // 1. Acha a segunda-feira da semana do registro
+    const segunda = registro.createdAt.toDate();
+    segunda.setDate(segunda.getDate() - ((segunda.getDay() + 6) % 7));
+    segunda.setHours(0, 0, 0, 0);
+
+    // 2. Cria a semana se ainda não existir
     const chave = segunda.getTime();
     if (!semanas[chave]) {
       const domingo = new Date(segunda);
       domingo.setDate(domingo.getDate() + 6);
       semanas[chave] = { chave, titulo: `${diaMes(segunda)} a ${diaMes(domingo)}`, registros: [] };
     }
+
+    // 3. Coloca o registro dentro da semana
     semanas[chave].registros.push(registro);
   }
 
   return Object.values(semanas).sort((a, b) => b.chave - a.chave);
+}
+
+// Card de uma semana de vendas
+function SemanaVendas({ semana, maiorTotal }) {
+  let total = 0;
+  for (const venda of semana.registros) total += venda.total;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.linha}>
+        <Text style={styles.semana}>{semana.titulo}</Text>
+        <Text style={styles.valor}>{dinheiro(total)}</Text>
+      </View>
+      <View style={styles.barraFundo}>
+        <View style={[styles.barra, { width: `${(total / maiorTotal) * 100}%` }]} />
+      </View>
+      <Text style={styles.texto}>{semana.registros.length} venda(s)</Text>
+    </View>
+  );
+}
+
+// Card de uma semana de estoque: entradas, saídas e saldo de cada produto
+function SemanaEstoque({ semana }) {
+  let entradas = 0;
+  let saidas = 0;
+  const produtos = {};
+
+  for (const movimento of semana.registros) {
+    if (movimento.quantidade > 0) entradas += movimento.quantidade;
+    else saidas += -movimento.quantidade;
+
+    if (!produtos[movimento.produtoId]) {
+      produtos[movimento.produtoId] = { id: movimento.produtoId, nome: movimento.produto, saldo: 0 };
+    }
+    produtos[movimento.produtoId].saldo += movimento.quantidade;
+  }
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.linha}>
+        <Text style={styles.semana}>{semana.titulo}</Text>
+        <Text style={styles.texto}>
+          <Text style={styles.entrada}>+{entradas}</Text>  <Text style={styles.saida}>-{saidas}</Text> un.
+        </Text>
+      </View>
+      {Object.values(produtos).map((produto) => (
+        <View key={produto.id} style={styles.linha}>
+          <Text style={styles.texto}>{produto.nome}</Text>
+          <Text style={produto.saldo >= 0 ? styles.entrada : styles.saida}>
+            {produto.saldo > 0 ? '+' : ''}{produto.saldo} un.
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
 }
 
 export default function Dashboard({ navigation }) {
@@ -45,7 +97,7 @@ export default function Dashboard({ navigation }) {
   const [movimentos, setMovimentos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fica atualizando vendas e movimentos de estoque sozinho
+  // Fica atualizando vendas e estoque sozinho enquanto a tela está aberta
   useEffect(() => {
     const pararVendas = acompanharVendas(
       (lista) => {
@@ -65,30 +117,16 @@ export default function Dashboard({ navigation }) {
     };
   }, []);
 
-  // Vendas: quantidade e total de cada semana
-  const semanasVendas = agruparPorSemana(vendas).map((semana) => ({
-    ...semana,
-    total: semana.registros.reduce((soma, venda) => soma + venda.total, 0),
-  }));
-  const maiorTotal = Math.max(1, ...semanasVendas.map((semana) => semana.total));
+  const semanasVendas = separarPorSemana(vendas);
+  const semanasEstoque = separarPorSemana(movimentos);
 
-  // Estoque: entradas, saídas e saldo de cada produto na semana
-  const semanasEstoque = agruparPorSemana(movimentos).map((semana) => {
-    const produtos = {};
-    let entradas = 0;
-    let saidas = 0;
-
-    for (const movimento of semana.registros) {
-      if (movimento.quantidade > 0) entradas += movimento.quantidade;
-      else saidas -= movimento.quantidade;
-
-      const atual = produtos[movimento.produtoId] || { id: movimento.produtoId, nome: movimento.produto, saldo: 0 };
-      atual.saldo += movimento.quantidade;
-      produtos[movimento.produtoId] = atual;
-    }
-
-    return { ...semana, entradas, saidas, produtos: Object.values(produtos) };
-  });
+  // Maior total de uma semana, para o tamanho das barras
+  let maiorTotal = 1;
+  for (const semana of semanasVendas) {
+    let total = 0;
+    for (const venda of semana.registros) total += venda.total;
+    if (total > maiorTotal) maiorTotal = total;
+  }
 
   return (
     <SafeAreaView style={styles.tela}>
@@ -101,22 +139,12 @@ export default function Dashboard({ navigation }) {
         </TouchableOpacity>
 
         <Text style={styles.titulo}>Dashboard</Text>
-
         {loading ? <ActivityIndicator color="#C94700" /> : null}
 
         <Text style={styles.secao}>Vendas por semana</Text>
         {!loading && semanasVendas.length === 0 ? <Text style={styles.vazio}>Nenhuma venda ainda.</Text> : null}
         {semanasVendas.map((semana) => (
-          <View key={semana.chave} style={styles.card}>
-            <View style={styles.linha}>
-              <Text style={styles.semana}>{semana.titulo}</Text>
-              <Text style={styles.valor}>{dinheiro(semana.total)}</Text>
-            </View>
-            <View style={styles.barraFundo}>
-              <View style={[styles.barra, { width: `${(semana.total / maiorTotal) * 100}%` }]} />
-            </View>
-            <Text style={styles.texto}>{semana.registros.length} venda(s)</Text>
-          </View>
+          <SemanaVendas key={semana.chave} semana={semana} maiorTotal={maiorTotal} />
         ))}
 
         <Text style={styles.secao}>Estoque por semana</Text>
@@ -124,25 +152,7 @@ export default function Dashboard({ navigation }) {
           <Text style={styles.vazio}>Não houve movimentação no estoque.</Text>
         ) : null}
         {semanasEstoque.map((semana) => (
-          <View key={semana.chave} style={styles.card}>
-            <View style={styles.linha}>
-              <Text style={styles.semana}>{semana.titulo}</Text>
-              <Text style={styles.texto}>
-                <Text style={styles.entrada}>+{semana.entradas}</Text>
-                {'  '}
-                <Text style={styles.saida}>-{semana.saidas}</Text>
-                {' un.'}
-              </Text>
-            </View>
-            {semana.produtos.map((produto) => (
-              <View key={produto.id} style={styles.linha}>
-                <Text style={styles.texto}>{produto.nome}</Text>
-                <Text style={produto.saldo >= 0 ? styles.entrada : styles.saida}>
-                  {produto.saldo > 0 ? '+' : ''}{produto.saldo} un.
-                </Text>
-              </View>
-            ))}
-          </View>
+          <SemanaEstoque key={semana.chave} semana={semana} />
         ))}
       </ScrollView>
     </SafeAreaView>

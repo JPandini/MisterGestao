@@ -36,14 +36,13 @@ const matchesSearch = (product, query) => {
   );
 };
 
-function ProductCard({ product, onAdd, userId }) {
-  const stockLabel = isLowStock(product) ? 'Estoque baixo' : 'Em estoque';
-  const [entradaAberta, setEntradaAberta] = useState(false);
+// Campo para dar entrada de mercadoria em um produto
+function EntradaEstoque({ product, userId }) {
   const [quantidade, setQuantidade] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
 
-  const salvarEntrada = async () => {
+  const salvar = async () => {
     const numero = Number(quantidade);
     if (!Number.isInteger(numero) || numero < 1) {
       setMensagem('Digite uma quantidade maior que zero.');
@@ -55,14 +54,35 @@ function ProductCard({ product, onAdd, userId }) {
       await aumentarEstoque(product, numero, userId);
       setMensagem(`+${numero} un. no estoque.`);
       setQuantidade('');
-      setEntradaAberta(false);
     } catch (e) {
-      console.error('Erro ao aumentar o estoque:', e);
+      console.error('Erro ao dar entrada no estoque:', e);
       setMensagem('Não foi possível salvar a entrada.');
     } finally {
       setSalvando(false);
     }
   };
+
+  return (
+    <View>
+      <View style={styles.entrada}>
+        <TextInput
+          style={styles.entradaInput}
+          placeholder="Quantidade que chegou"
+          placeholderTextColor="#787B81"
+          keyboardType="number-pad"
+          value={quantidade}
+          onChangeText={setQuantidade}
+        />
+        <Button title="Salvar" onPress={salvar} disabled={salvando} style={styles.entradaBotao} />
+      </View>
+      {mensagem ? <Text style={styles.entradaMensagem}>{mensagem}</Text> : null}
+    </View>
+  );
+}
+
+function ProductCard({ product, onAdd, userId }) {
+  const stockLabel = isLowStock(product) ? 'Estoque baixo' : 'Em estoque';
+  const [entradaAberta, setEntradaAberta] = useState(false);
 
   return (
     <View style={styles.card}>
@@ -100,21 +120,7 @@ function ProductCard({ product, onAdd, userId }) {
         </View>
       </View>
 
-      {entradaAberta ? (
-        <View style={styles.entrada}>
-          <TextInput
-            style={styles.entradaInput}
-            placeholder="Quantidade que chegou"
-            placeholderTextColor="#787B81"
-            keyboardType="number-pad"
-            value={quantidade}
-            onChangeText={setQuantidade}
-            editable={!salvando}
-          />
-          <Button title="Salvar" onPress={salvarEntrada} loading={salvando} disabled={salvando} style={styles.entradaBotao} />
-        </View>
-      ) : null}
-      {mensagem ? <Text style={styles.entradaMensagem}>{mensagem}</Text> : null}
+      {entradaAberta ? <EntradaEstoque product={product} userId={userId} /> : null}
     </View>
   );
 }
