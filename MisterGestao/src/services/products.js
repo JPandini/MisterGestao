@@ -4,12 +4,14 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   orderBy,
   query,
   runTransaction,
   serverTimestamp,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 import { db } from './firebase';
@@ -129,4 +131,21 @@ export async function salvarNome(colecao, nome, userId) {
     createdAt: serverTimestamp(),
     createdBy: userId,
   });
+}
+
+// Entrada de mercadoria: soma ao estoque e registra o movimento (para o dashboard)
+export async function aumentarEstoque(produto, quantidade, userId) {
+  const lote = writeBatch(db);
+  lote.update(doc(db, 'lojas', PRODUCT_STORE_ID, 'produtos', produto.id), {
+    stock: increment(quantidade),
+  });
+  lote.set(doc(collection(db, 'lojas', PRODUCT_STORE_ID, 'movimentos')), {
+    produtoId: produto.id,
+    produto: produto.name,
+    quantidade,
+    tipo: 'entrada',
+    createdAt: serverTimestamp(),
+    createdBy: userId,
+  });
+  await lote.commit();
 }

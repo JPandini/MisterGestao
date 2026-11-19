@@ -11,6 +11,7 @@ import LoginScreen from '../view/Login';
 import MainTabsNavigator from './MainTabsNavigator';
 import RegisterProductScreen from '../view/CadastroProduto';
 import CartScreen from '../view/Carrinho';
+import Dashboard from '../view/Dashboard';
 import CadastroNome from '../view/CadastroNome';
 import OrcamentoScreen from '../view/Orcamento';
 import CompartilharOrcamentoScreen from '../view/CompartilharOrcamento';
@@ -34,6 +35,7 @@ function AuthenticatedNavigator() {
           <Stack.Screen name="MainTabs" component={MainTabsNavigator} />
           <Stack.Screen name="CadastroProduto" component={RegisterProductScreen} />
           <Stack.Screen name="Carrinho" component={CartScreen} />
+          <Stack.Screen name="Dashboard" component={Dashboard} />
           <Stack.Screen name="CadastroMarca" component={CadastroNome} />
           <Stack.Screen name="CadastroCategoria" component={CadastroNome} />
           <Stack.Screen name="Orcamento" component={OrcamentoScreen} />

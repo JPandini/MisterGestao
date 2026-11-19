@@ -62,7 +62,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
         && request.resource.data.stock is int
         && request.resource.data.stock >= 0
-        && request.resource.data.stock < resource.data.stock;
+        && request.resource.data.stock != resource.data.stock;
       allow delete: if false;
     }
 
@@ -116,6 +116,21 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Histórico de estoque: entrada (+) ou venda (-), nunca muda depois de criado
+    match /lojas/mister-motoplace/movimentos/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['produtoId', 'produto', 'quantidade', 'tipo', 'createdAt', 'createdBy'])
+        && request.resource.data.produtoId is string
+        && request.resource.data.produto is string
+        && request.resource.data.quantidade is int
+        && ((request.resource.data.tipo == 'entrada' && request.resource.data.quantidade > 0)
+          || (request.resource.data.tipo == 'venda' && request.resource.data.quantidade < 0))
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
     match /lojas/mister-motoplace/marcas/{id} {
       allow read: if signedIn();
       allow create: if signedIn() && validName();
@@ -165,6 +180,10 @@ service cloud.firestore {
         && request.resource.data.validade is string
         && request.resource.data.validade.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
         && withinValidity(request.resource.data)
+        // No máximo 7 dias de validade (8 dias de folga por causa do fuso horário)
+        && timestamp.date(int(request.resource.data.validade.split('-')[0]),
+            int(request.resource.data.validade.split('-')[1]),
+            int(request.resource.data.validade.split('-')[2])) < request.time + duration.value(8, 'd')
         && request.resource.data.total
           == request.resource.data.subtotal
             - request.resource.data.desconto

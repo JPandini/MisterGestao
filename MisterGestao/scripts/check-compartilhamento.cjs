@@ -39,6 +39,7 @@ const clientes = load('src/services/clientes.js');
 const orcamentos = load('src/services/orcamentos.js');
 const telefones = load('src/utils/clientes.js');
 const compartilhar = load('src/utils/compartilharOrcamento.js');
+const datas = load('src/utils/orcamento.js');
 const colecao = (...segments) => firestore.doc(db, 'lojas', 'mister-motoplace', ...segments);
 let checks = 0;
 async function check(name, callback) { await callback(); checks++; console.log('OK:', name); }
@@ -71,7 +72,7 @@ async function run() {
   });
   let id;
   await check('orcamento salvo recebe cliente real sem mudar valores', async () => {
-    id = await orcamentos.salvarOrcamento({ itens: [{ id: 'pneu', nome: 'Pneu & Câmara', medida: '90/90', preco: 10050, quantidade: 2 }], desconto: 100, frete: 500, validade: '2026-12-31', observacoes: 'Retirar na loja' }, 'vendedor-teste');
+    id = await orcamentos.salvarOrcamento({ itens: [{ id: 'pneu', nome: 'Pneu & Câmara', medida: '90/90', preco: 10050, quantidade: 2 }], desconto: 100, frete: 500, validade: datas.validadePadrao(), observacoes: 'Retirar na loja' }, 'vendedor-teste');
     const antes = await orcamentos.buscarOrcamento(id);
     const atualizado = await orcamentos.vincularClienteAoOrcamento(id, cliente.id);
     assert.equal(atualizado.cliente.nome, 'Ana'); assert.equal(atualizado.cliente.contato, '11999999999');
@@ -81,7 +82,7 @@ async function run() {
     assert.equal(url.origin + url.pathname, 'https://wa.me/5511999999999');
     const mensagem = url.searchParams.get('text');
     assert.match(mensagem, /Pneu & Câmara/); assert.match(mensagem, /Ana/); assert.match(mensagem, /205,00/);
-    assert.match(mensagem, /31\/12\/2026/); assert.match(mensagem, /Retirar na loja/);
+    assert.ok(mensagem.includes(datas.validadePadrao().split('-').reverse().join('/'))); assert.match(mensagem, /Retirar na loja/);
   });
   await check('regras impedem mudar total, itens e status durante escolha do cliente', async () => {
     for (const dados of [{ total: 1 }, { itens: [] }, { status: 'converted' }, { createdBy: 'outro' }]) {
