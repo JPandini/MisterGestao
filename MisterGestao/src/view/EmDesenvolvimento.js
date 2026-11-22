@@ -26,7 +26,7 @@ export default function UpcomingScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
       <Header userName={userName} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>{feature.title}</Text>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Keyboard,
   Pressable,
@@ -17,11 +18,12 @@ import {
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
-import { createProduct, listarNomes, subscribeToNextProductCode } from '../services/products';
+import { useProducts } from '../context/ProductsContext';
+import { createProduct, listarNomes, subscribeToNextProductCode, updateProduct } from '../services/products';
 import { productCodePrefix } from '../utils/productCodes';
 import { prepararFotoProduto } from '../utils/productPhoto';
-import { parsePriceToCents } from '../utils/money';
-import { parseProfitPercentage, updateProductPricing } from '../utils/productPricing';
+import { centsToInput, parsePriceToCents } from '../utils/money';
+import { calculateProfitPercentage, parseProfitPercentage, updateProductPricing } from '../utils/productPricing';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import FormField from '../components/FormField';
@@ -41,7 +43,24 @@ const EMPTY_FORM = {
 
 const INTEGER_PATTERN = /^\d+$/;
 
-const validate = (form, categorias, marcas) => {
+function preencherForm(produto) {
+  if (!produto) return EMPTY_FORM;
+  const lucro = calculateProfitPercentage(produto.costPrice, produto.price);
+  return {
+    name: produto.name ?? '',
+    category: produto.category ?? '',
+    brand: produto.brand ?? '',
+    measure: produto.measure ?? '',
+    price: produto.price == null ? '' : centsToInput(produto.price),
+    costPrice: produto.costPrice == null ? '' : centsToInput(produto.costPrice),
+    profitPercentage: lucro === null ? '' : lucro.toFixed(2).replace('.', ','),
+    pricingSource: 'price',
+    stock: String(produto.stock ?? ''),
+    minimum: String(produto.minimum ?? ''),
+  };
+}
+
+const validate = (form, categorias, marcas, original) => {
   const errors = {};
   const priceInCents = parsePriceToCents(form.price);
   const costInCents = parsePriceToCents(form.costPrice);
@@ -50,18 +69,22 @@ const validate = (form, categorias, marcas) => {
     errors.name = 'Informe o nome do produto.';
   }
 
-  if (!form.category) {
-    errors.category = 'Selecione uma categoria.';
-  } else if (!categorias.some((item) => item.name === form.category)) {
-    errors.category = 'Selecione uma categoria cadastrada.';
-  } else {
-    try { productCodePrefix(form.category); } catch { errors.category = 'A categoria precisa conter letras.'; }
+  if (!original || form.category !== (original.category ?? '')) {
+    if (!form.category) {
+      errors.category = 'Selecione uma categoria.';
+    } else if (!categorias.some((item) => item.name === form.category)) {
+      errors.category = 'Selecione uma categoria cadastrada.';
+    } else if (!original) {
+      try { productCodePrefix(form.category); } catch { errors.category = 'A categoria precisa conter letras.'; }
+    }
   }
 
-  if (!form.brand) {
-    errors.brand = 'Selecione uma marca.';
-  } else if (!marcas.some((item) => item.name === form.brand)) {
-    errors.brand = 'Selecione uma marca cadastrada.';
+  if (!original || form.brand !== (original.brand ?? '')) {
+    if (!form.brand) {
+      errors.brand = 'Selecione uma marca.';
+    } else if (!marcas.some((item) => item.name === form.brand)) {
+      errors.brand = 'Selecione uma marca cadastrada.';
+    }
   }
 
   if (priceInCents === null) {
@@ -69,13 +92,16 @@ const validate = (form, categorias, marcas) => {
   } else if (priceInCents <= 0) {
     errors.price = 'O valor de venda precisa ser maior que zero.';
   }
-  if (costInCents === null) errors.costPrice = 'Use o formato 54,90.';
-  else if (costInCents <= 0) errors.costPrice = 'O valor de custo precisa ser maior que zero.';
-  if (parseProfitPercentage(form.profitPercentage) === null) {
-    errors.profitPercentage = 'Informe o percentual, como 25 ou 25,50, maior que -100%.';
+  const custoOpcionalVazio = original && original.costPrice == null && !form.costPrice.trim();
+  if (!custoOpcionalVazio) {
+    if (costInCents === null) errors.costPrice = 'Use o formato 54,90.';
+    else if (costInCents <= 0) errors.costPrice = 'O valor de custo precisa ser maior que zero.';
+    if (parseProfitPercentage(form.profitPercentage) === null) {
+      errors.profitPercentage = 'Informe o percentual, como 25 ou 25,50, maior que -100%.';
+    }
   }
 
-  if (!INTEGER_PATTERN.test(form.stock.trim()) || !Number.isSafeInteger(Number(form.stock))) {
+  if (!original && (!INTEGER_PATTERN.test(form.stock.trim()) || !Number.isSafeInteger(Number(form.stock)))) {
     errors.stock = 'Use um número inteiro, zero ou maior.';
   }
 
@@ -197,8 +223,33 @@ function CampoSelect({
   );
 }
 
-export default function CadastroProdutoScreen({ navigation }) {
-  const [form, setForm] = useState(EMPTY_FORM);
+export default function CadastroProdutoScreen({ navigation, route }) {
+  const { products, isLoading, error, retry } = useProducts();
+  if (route?.name !== 'EditarProduto') return <ProdutoForm navigation={navigation} />;
+
+  const produto = products.find((item) => item.id === route.params?.id);
+  if (produto) return <ProdutoForm key={produto.id} navigation={navigation} produto={produto} />;
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <Header />
+      <View style={styles.content}>
+        <Button title="Voltar" variant="secondary" onPress={() => navigation.goBack()} />
+        {isLoading ? (
+          <ActivityIndicator color="#C94700" accessibilityLabel="Carregando produto" style={styles.secondaryButton} />
+        ) : (
+          <Text style={styles.notice} accessibilityRole="alert">{error || 'Produto não encontrado.'}</Text>
+        )}
+        {error ? <Button title="Tentar novamente" variant="secondary" onPress={retry} style={styles.secondaryButton} /> : null}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function ProdutoForm({ navigation, produto }) {
+  const [original] = useState(produto);
+  const editando = Boolean(original);
+  const [form, setForm] = useState(() => preencherForm(original));
   const [errors, setErrors] = useState({});
   const [notice, setNotice] = useState('');
   const [noticeType, setNoticeType] = useState('success');
@@ -209,7 +260,7 @@ export default function CadastroProdutoScreen({ navigation }) {
   const [marcas, setMarcas] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [selectAberto, setSelectAberto] = useState(null);
-  const [foto, setFoto] = useState('');
+  const [foto, setFoto] = useState(original?.photo || '');
   const [processandoFoto, setProcessandoFoto] = useState(false);
   const fotoEmAndamento = useRef(false);
   const [preview, setPreview] = useState(null);
@@ -218,7 +269,7 @@ export default function CadastroProdutoScreen({ navigation }) {
   const codePreview = preview?.categoryId === categoryId ? preview : null;
 
   useEffect(() => {
-    if (!categoryId) return;
+    if (editando || !categoryId) return;
     return subscribeToNextProductCode({ id: categoryId, name: form.category }, (code) => {
       setPreview({ categoryId, code });
     }, (error) => {
@@ -226,7 +277,7 @@ export default function CadastroProdutoScreen({ navigation }) {
         ? 'O Firebase bloqueou a consulta do código. Publique as regras atualizadas e tente novamente.'
         : 'Não foi possível consultar o próximo código. Confira a conexão e tente novamente.' });
     });
-  }, [categoryId, form.category, tentativaCodigo]);
+  }, [categoryId, editando, form.category, tentativaCodigo]);
 
   useEffect(() => {
     const carregar = async () => {
@@ -236,7 +287,7 @@ export default function CadastroProdutoScreen({ navigation }) {
         setCategorias(categories);
       } catch {
         setNoticeType('error');
-        setNotice('Não foi possível carregar marcas e categorias. Volte e abra o cadastro novamente.');
+        setNotice('Não foi possível carregar marcas e categorias. Volte e abra o formulário novamente.');
       }
     };
     carregar();
@@ -298,14 +349,14 @@ export default function CadastroProdutoScreen({ navigation }) {
   const handleSave = async () => {
     if (saving.current || fotoEmAndamento.current) return;
 
-    const nextErrors = validate(form, categorias, marcas);
+    const nextErrors = validate(form, categorias, marcas, original);
 
     setErrors(nextErrors);
     setNotice('');
     setNoticeType('success');
 
     if (Object.keys(nextErrors).length > 0) return;
-    if (!codePreview?.code) {
+    if (!editando && !codePreview?.code) {
       setNoticeType('error');
       setNotice('Aguarde a geração do código automático ou tente consultar novamente.');
       return;
@@ -313,7 +364,7 @@ export default function CadastroProdutoScreen({ navigation }) {
 
     if (!user?.uid) {
       setNoticeType('error');
-      setNotice('Entre novamente para cadastrar produtos.');
+      setNotice('Entre novamente para salvar produtos.');
       return;
     }
 
@@ -322,21 +373,25 @@ export default function CadastroProdutoScreen({ navigation }) {
     setIsSaving(true);
 
     try {
-      await createProduct(
-        {
-          name: form.name,
-          category: form.category,
-          categoryId,
-          brand: form.brand,
-          measure: form.measure,
-          price: parsePriceToCents(form.price),
-          costPrice: parsePriceToCents(form.costPrice),
-          stock: Number(form.stock),
-          minimum: Number(form.minimum),
-          photo: foto,
-        },
-        user.uid
-      );
+      const dados = {
+        name: form.name,
+        category: form.category,
+        categoryId,
+        brand: form.brand,
+        measure: form.measure,
+        price: parsePriceToCents(form.price),
+        costPrice: parsePriceToCents(form.costPrice),
+        minimum: Number(form.minimum),
+        photo: foto,
+      };
+
+      if (editando) {
+        await updateProduct(original, dados, user.uid);
+        if (navigation.isFocused()) navigation.goBack();
+        return;
+      }
+
+      await createProduct({ ...dados, stock: Number(form.stock) }, user.uid);
 
       setForm({ ...EMPTY_FORM });
       setFoto('');
@@ -345,9 +400,11 @@ export default function CadastroProdutoScreen({ navigation }) {
     } catch (error) {
       setNoticeType('error');
       setNotice(
-        error?.code === 'permission-denied'
-          ? 'O Firebase negou acesso ao cadastro ou ao código automático. Confira se as regras atualizadas de produtos e sequências foram publicadas no Console do Firebase.'
-          : 'Não foi possível salvar o produto. Verifique a conexão e tente novamente.'
+        error?.code === 'product-edit-conflict' || error?.code === 'product-not-found'
+          ? error.message
+          : error?.code === 'permission-denied'
+            ? 'O Firebase negou a gravação. Confira se as regras atualizadas de produtos foram publicadas.'
+            : 'Não foi possível salvar o produto. Verifique a conexão e tente novamente.'
       );
     } finally {
       saving.current = false;
@@ -357,7 +414,7 @@ export default function CadastroProdutoScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       <Header userName={userName} />
 
@@ -374,14 +431,15 @@ export default function CadastroProdutoScreen({ navigation }) {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs', { screen: 'Home' }))}
+            disabled={isSaving}
           >
             <Feather name="arrow-left" size={16} color="#626975" />
             <Text style={styles.backText}>Voltar</Text>
           </TouchableOpacity>
 
           <View style={styles.greeting}>
-            <Text style={styles.pageTitle}>Cadastro de produto</Text>
-            <Text style={styles.pageSubtitle}>Adicione um item ao estoque da loja.</Text>
+            <Text style={styles.pageTitle}>{editando ? 'Editar produto' : 'Cadastro de produto'}</Text>
+            <Text style={styles.pageSubtitle}>{editando ? original.name : 'Adicione um item ao estoque da loja.'}</Text>
           </View>
 
           <FormField
@@ -433,6 +491,7 @@ export default function CadastroProdutoScreen({ navigation }) {
             onChangeText={updatePricing('costPrice')}
             maxLength={16}
             editable={!isSaving}
+            optional={editando && original.costPrice == null}
             error={errors.costPrice}
             accessibilityLabel="Valor de custo do produto"
           />
@@ -468,9 +527,10 @@ export default function CadastroProdutoScreen({ navigation }) {
                 label="Saldo"
                 placeholder="0"
                 keyboardType="number-pad"
-                value={form.stock}
+                value={editando ? String(produto.stock ?? '') : form.stock}
                 onChangeText={updateField('stock')}
                 editable={!isSaving}
+                disabled={editando}
                 error={errors.stock}
               />
             </View>
@@ -488,14 +548,14 @@ export default function CadastroProdutoScreen({ navigation }) {
           </View>
 
           <FormField
-            label="Código automático"
-            placeholder={categoryId ? (codePreview?.error ? 'Código indisponível' : 'Gerando código...') : 'Selecione uma categoria'}
-            value={codePreview?.code || ''}
+            label={editando ? 'Código do produto' : 'Código automático'}
+            placeholder={editando ? 'Sem código' : categoryId ? (codePreview?.error ? 'Código indisponível' : 'Gerando código...') : 'Selecione uma categoria'}
+            value={editando ? original.code || '' : codePreview?.code || ''}
             disabled
             error={codePreview?.error}
-            accessibilityLabel="Código automático do produto"
+            accessibilityLabel={editando ? 'Código do produto' : 'Código automático do produto'}
           />
-          <Text style={styles.pageSubtitle}>Preenchido automaticamente pela categoria.</Text>
+          {!editando ? <Text style={styles.pageSubtitle}>Preenchido automaticamente pela categoria.</Text> : null}
           {codePreview?.error ? <Button title="Tentar gerar código novamente" variant="secondary"
             onPress={() => { setPreview(null); setTentativaCodigo((value) => value + 1); }} /> : null}
 
@@ -513,17 +573,17 @@ export default function CadastroProdutoScreen({ navigation }) {
             disabled={isSaving || processandoFoto} style={styles.secondaryButton} /> : null}
 
           <Button
-            title="Salvar produto"
+            title={editando ? 'Salvar alterações' : 'Salvar produto'}
             onPress={handleSave}
             loading={isSaving}
-            disabled={isSaving || processandoFoto || !codePreview?.code}
+            disabled={isSaving || processandoFoto || (!editando && !codePreview?.code)}
             style={styles.primaryButton}
           />
 
           <Button
             title="Cancelar"
             variant="secondary"
-            onPress={() => navigation.popTo('MainTabs', { screen: 'Home' })}
+            onPress={() => editando ? navigation.goBack() : navigation.popTo('MainTabs', { screen: 'Home' })}
             disabled={isSaving}
             style={styles.secondaryButton}
           />

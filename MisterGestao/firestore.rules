@@ -6,6 +6,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function validProductCategory(dados) {
+      return dados.category is string
+        && dados.categoryId is string
+        && dados.category
+          == get(/databases/$(database)/documents/lojas/mister-motoplace/categorias/$(dados.categoryId)).data.name;
+    }
+
+    function validProductPhoto(dados) {
+      return !('photo' in dados)
+        || (dados.photo is string
+          && dados.photo.size() <= 700000
+          && dados.photo.matches('data:image/jpeg;base64,.*'));
+    }
+
+    function validProductCost(dados) {
+      return dados.costPrice is int
+        && dados.costPrice > 0
+        && dados.profitPercentage is number
+        && dados.profitPercentage >= -100
+        && dados.profitPercentage <= 90071992547409;
+    }
+
     function validProduct() {
       return request.resource.data.keys().hasAll([
           'name', 'category', 'categoryId', 'brand', 'measure', 'code',
@@ -17,31 +39,39 @@ service cloud.firestore {
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.category is string
-        && request.resource.data.categoryId is string
-        && request.resource.data.category
-          == get(/databases/$(database)/documents/lojas/mister-motoplace/categorias/$(request.resource.data.categoryId)).data.name
+        && validProductCategory(request.resource.data)
         && request.resource.data.brand is string
         && request.resource.data.measure is string
         && request.resource.data.code is string
         && request.resource.data.code.matches('[A-Z]{3}-[0-9]{3,}')
-        && (!('photo' in request.resource.data)
-          || (request.resource.data.photo is string
-            && request.resource.data.photo.size() <= 700000
-            && request.resource.data.photo.matches('data:image/jpeg;base64,.*')))
+        && validProductPhoto(request.resource.data)
         && request.resource.data.price is int
         && request.resource.data.price > 0
-        && request.resource.data.costPrice is int
-        && request.resource.data.costPrice > 0
-        && request.resource.data.profitPercentage is number
-        && request.resource.data.profitPercentage >= -100
-        && request.resource.data.profitPercentage <= 90071992547409
+        && validProductCost(request.resource.data)
         && request.resource.data.stock is int
         && request.resource.data.stock >= 0
         && request.resource.data.minimum is int
         && request.resource.data.minimum >= 0
         && request.resource.data.createdAt == request.time
         && request.resource.data.createdBy == request.auth.uid;
+    }
+
+    function validProductEdit() {
+      let dados = request.resource.data;
+      let campos = dados.diff(resource.data).affectedKeys();
+      return campos.hasOnly(['name', 'category', 'categoryId', 'brand', 'measure',
+          'price', 'costPrice', 'profitPercentage', 'minimum', 'photo'])
+        && (!campos.hasAny(['name']) || (dados.name is string && dados.name.size() > 0))
+        && (!campos.hasAny(['category', 'categoryId']) || validProductCategory(dados))
+        && (!campos.hasAny(['brand']) || (dados.brand is string && dados.brand.size() > 0))
+        && (!campos.hasAny(['measure']) || dados.measure is string)
+        && (!campos.hasAny(['minimum']) || (dados.minimum is int && dados.minimum >= 0))
+        && (!campos.hasAny(['photo']) || validProductPhoto(dados))
+        && (!campos.hasAny(['price', 'costPrice', 'profitPercentage'])
+          || (dados.price is int && dados.price > 0
+            && ((!campos.hasAny(['costPrice', 'profitPercentage'])
+                && dados.get('costPrice', null) == null && dados.get('profitPercentage', null) == null)
+              || validProductCost(dados))));
     }
 
     function validName() {
@@ -57,7 +87,8 @@ service cloud.firestore {
       allow create: if signedIn() && validProduct()
         && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/sequenciasProdutos/$(request.resource.data.categoryId)).data.productId == productId
         && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/sequenciasProdutos/$(request.resource.data.categoryId)).data.code == request.resource.data.code;
-      // Venda: só pode baixar o estoque
+      allow update: if signedIn() && validProductEdit();
+      // Entradas e vendas movimentam o saldo pelo fluxo de estoque.
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
         && request.resource.data.stock is int
@@ -100,6 +131,13 @@ service cloud.firestore {
             int(dados.validade.split('-')[1]), int(dados.validade.split('-')[2])) + duration.value(27, 'h'));
     }
 
+    function withinSaleWindow(dados) {
+      return withinValidity(dados) && (
+        !('createdAt' in dados) || !(dados.createdAt is timestamp)
+        || request.time < dados.createdAt + duration.value(8, 'd')
+      );
+    }
+
     match /lojas/mister-motoplace/vendas/{vendaId} {
       allow read: if signedIn();
       // A venda tem o mesmo código do orçamento e só é criada junto com a conversão dele
@@ -108,7 +146,7 @@ service cloud.firestore {
         && request.resource.data.orcamentoId == vendaId
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
-        && withinValidity(get(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(vendaId)).data)
+        && withinSaleWindow(get(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(vendaId)).data)
         && get(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(request.resource.data.orcamentoId)).data.status == 'open'
         && getAfter(/databases/$(database)/documents/lojas/mister-motoplace/orcamentos/$(request.resource.data.orcamentoId)).data.status == 'converted'
         && request.resource.data.total
@@ -167,6 +205,7 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
         && request.resource.data.status == 'open'
+        && !('reminderDay' in request.resource.data)
         && request.resource.data.itens is list
         && request.resource.data.itens.size() > 0
         && request.resource.data.subtotal is int
@@ -193,7 +232,7 @@ service cloud.firestore {
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && resource.data.status == 'open'
-        && withinValidity(resource.data)
+        && withinSaleWindow(resource.data)
         && request.resource.data.status == 'converted'
         && existsAfter(/databases/$(database)/documents/lojas/mister-motoplace/vendas/$(orcamentoId));
 
@@ -218,6 +257,26 @@ service cloud.firestore {
         && request.resource.data.cliente.contato
           == get(/databases/$(database)/documents/lojas/mister-motoplace/clientes/$(request.resource.data.cliente.id)).data.telefone;
       allow delete: if false;
+    }
+
+    match /dispositivosPush/{token} {
+      // A posse do token do Expo permite registrar novamente a instalação após uma troca de conta.
+      allow create, update: if signedIn()
+        && token.matches('(Expo|Exponent)PushToken\\[[A-Za-z0-9_-]{1,128}\\]')
+        && request.resource.data.keys().hasOnly(['uid', 'vinculadoEm'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.vinculadoEm == request.time;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow read: if false;
+    }
+
+    match /usuarios/{uid}/notificacoesOrcamentos/{notificacaoId} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lida'])
+        && request.resource.data.lida == true;
+      allow create, delete: if false;
     }
 
     match /{document=**} {

@@ -330,6 +330,104 @@ async function run() {
     assert.equal(stock, saved.status === 'converted' ? 0 : 1);
     assert.equal(sale.exists(), saved.status === 'converted');
   });
+  await check('histórico do Dashboard recebe entradas para contas autenticadas e bloqueia visitantes', async () => {
+    const id = await products.createProduct(product('Teste de preço'), 'vendedor-teste');
+    await products.aumentarEstoque({ id, name: 'Câmara reforçada' }, 2, 'vendedor-teste');
+    let parar;
+    try {
+      const movimentos = await new Promise((resolve, reject) => {
+        const limite = setTimeout(() => reject(new Error('O histórico de estoque não carregou.')), 10000);
+        parar = sales.acompanharMovimentos((lista) => {
+          clearTimeout(limite);
+          resolve(lista);
+        }, (erro) => {
+          clearTimeout(limite);
+          reject(erro);
+        });
+      });
+      assert.ok(movimentos.some((movimento) => (
+        movimento.produtoId === id && movimento.tipo === 'entrada' && movimento.quantidade === 2
+      )));
+    } finally {
+      parar?.();
+    }
+    const movimentosAnonimos = firestore.collection(anonDb, 'lojas', 'mister-motoplace', 'movimentos');
+    await denied(firestore.getDocs(movimentosAnonimos));
+  });
+  await check('edição atualiza o cadastro e preserva código, estoque e orçamentos existentes', async () => {
+    const id = await products.createProduct({
+      ...product('Teste de preço'),
+      photo: 'data:image/jpeg;base64,/9j/AA==',
+    }, 'vendedor-teste');
+    const referencia = ref('produtos', id);
+    const original = { id, ...(await firestore.getDoc(referencia)).data() };
+    const quote = await quotes.salvarOrcamento({ itens: [item(id)] }, 'vendedor-teste');
+    const editado = {
+      ...original,
+      name: 'Câmara de competição',
+      category: 'Pneus',
+      categoryId: categoryId('Pneus'),
+      brand: 'Nova marca',
+      measure: '19',
+      costPrice: 5000,
+      price: 6750,
+      minimum: 3,
+      photo: '',
+    };
+    await Promise.all([
+      products.updateProduct(original, editado, 'vendedor-teste'),
+      products.aumentarEstoque(original, 2, 'vendedor-teste'),
+    ]);
+    const salvo = (await firestore.getDoc(referencia)).data();
+    for (const campo of ['name', 'category', 'categoryId', 'brand', 'measure', 'costPrice', 'price', 'minimum']) {
+      assert.equal(salvo[campo], editado[campo]);
+    }
+    assert.equal(salvo.profitPercentage, 35);
+    assert.equal(salvo.photo, undefined);
+    assert.equal(salvo.stock, original.stock + 2);
+    assert.equal(salvo.code, original.code);
+    assert.equal(salvo.createdBy, original.createdBy);
+    assert.ok(salvo.createdAt.isEqual(original.createdAt));
+    assert.equal((await quotes.buscarOrcamento(quote)).itens[0].preco, item(id).preco);
+    const historico = await firestore.getDocs(firestore.query(
+      firestore.collection(db, 'lojas', 'mister-motoplace', 'movimentos'),
+      firestore.where('produtoId', '==', id)
+    ));
+    assert.deepEqual(historico.docs.map((movimento) => movimento.data().quantidade), [2]);
+    await products.updateProduct(original, editado, 'vendedor-teste');
+    await assert.rejects(products.updateProduct(original, { ...original, name: 'Nome desatualizado' },
+      'vendedor-teste'), { code: 'product-edit-conflict' });
+  });
+  await check('edição aceita produtos antigos e restringe campos e acesso nas regras', async () => {
+    const id = 'edicao-produto-antigo';
+    const original = { ...product('Pneus'), id, code: 'PN-04' };
+    delete original.categoryId;
+    delete original.costPrice;
+    delete original.profitPercentage;
+    const { id: _id, ...documento } = original;
+    await seed('produtos', id, documento);
+    const referencia = ref('produtos', id);
+    await products.updateProduct(original, { ...original, price: 7000 }, 'vendedor-teste');
+    const atualizado = { id, ...(await firestore.getDoc(referencia)).data() };
+    assert.equal(atualizado.price, 7000);
+    assert.equal(atualizado.costPrice, undefined);
+    assert.equal(atualizado.categoryId, undefined);
+    assert.equal(atualizado.code, original.code);
+
+    await products.updateProduct(atualizado, { ...atualizado, costPrice: 5000 }, 'vendedor-teste');
+    assert.equal((await firestore.getDoc(referencia)).data().profitPercentage, 40);
+    await assert.rejects(products.updateProduct(atualizado, { ...atualizado, price: 7500 },
+      'vendedor-teste'), { code: 'product-edit-conflict' });
+    await denied(firestore.updateDoc(referencia, { name: 'Alterado', stock: 99 }));
+    await denied(firestore.updateDoc(referencia, { code: 'PNE-999' }));
+    await denied(firestore.updateDoc(referencia, { createdBy: 'outra-conta' }));
+    await denied(firestore.updateDoc(referencia, { category: 'Pneus', categoryId: categoryId('Câmara de ar') }));
+    await denied(firestore.updateDoc(referencia, { price: 0 }));
+    await denied(firestore.updateDoc(referencia, { minimum: -1 }));
+    await denied(firestore.updateDoc(referencia, { photo: 'file:///foto.jpg' }));
+    await denied(firestore.updateDoc(referencia, { costPrice: firestore.deleteField(), profitPercentage: firestore.deleteField() }));
+    await denied(firestore.updateDoc(firestore.doc(anonDb, 'lojas', 'mister-motoplace', 'produtos', id), { name: 'Anônimo' }));
+  });
   await check('PDF inclui condições, neutraliza HTML e informa pop-up bloqueado', async () => {
     const quote = await quotes.buscarOrcamento(quoteId);
     const html = pdf.montarHtmlOrcamento({ ...quote, cliente: { nome: '<script>alert(1)</script>' } });

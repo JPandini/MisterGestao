@@ -22,7 +22,9 @@ export function lerValidade(text) {
 }
 
 export function orcamentoVencido(orcamento, date = new Date()) {
-  return Boolean(orcamento.validade && (!dataValida(orcamento.validade) || orcamento.validade < dataLocal(date)));
+  const idadeMs = date.getTime() - orcamento.createdAt?.toMillis?.();
+  return idadeMs >= 8 * 24 * 60 * 60 * 1000
+    || Boolean(orcamento.validade && (!dataValida(orcamento.validade) || orcamento.validade < dataLocal(date)));
 }
 
 export function statusOrcamento(orcamento) {

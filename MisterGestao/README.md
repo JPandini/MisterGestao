@@ -6,7 +6,7 @@ Aplicativo Expo/React Native escrito em JavaScript. A navegação usa React Navi
 
 1. Instale as dependências: `npm install`.
 2. No PowerShell, copie `.env.example` para `.env` com `Copy-Item .env.example .env` e preencha os seis valores do app Firebase em **Configurações do projeto → Seus apps**.
-3. Inicie o app com `npx expo start` ou `npx expo start --web`.
+3. Inicie o app com `npx expo start --clear` ou `npx expo start --web`. No iPhone, use o Expo Go compatível com o SDK 58 para abrir o QR code. Os avisos push são testados com uma versão própria instalada.
 
 O projeto local esperado no arquivo de configuração é `mistergestao-5ebe1`. Não compartilhe o `.env`. Sem esse arquivo, o app abre uma tela com os passos e os nomes das variáveis que faltam; login e Firestore só ficam disponíveis depois de configurá-lo e reiniciar o Expo.
 

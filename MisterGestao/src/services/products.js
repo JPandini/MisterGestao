@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -116,6 +117,83 @@ export async function createProduct(product, userId) {
       ...(product.photo ? { photo: product.photo } : {}),
     });
     return productRef.id;
+  });
+}
+
+export async function updateProduct(original, product, userId) {
+  if (!userId) throw new Error('Entre novamente para editar produtos.');
+  if (!original?.id) throw new Error('Produto não encontrado.');
+
+  const nome = product.name.trim();
+  const marca = product.brand.trim();
+  const medida = product.measure.trim();
+  if (!nome) throw new Error('Informe o nome do produto.');
+  if (!Number.isSafeInteger(product.price) || product.price <= 0) {
+    throw new Error('Confira o valor de venda do produto.');
+  }
+  if (!Number.isSafeInteger(product.minimum) || product.minimum < 0) {
+    throw new Error('Confira o estoque mínimo.');
+  }
+
+  const changes = {};
+  if (nome !== original.name) changes.name = nome;
+  if (marca !== (original.brand ?? '')) {
+    if (!marca) throw new Error('Selecione uma marca cadastrada.');
+    changes.brand = marca;
+  }
+  if (medida !== (original.measure ?? '')) changes.measure = medida;
+  if (product.minimum !== original.minimum) changes.minimum = product.minimum;
+
+  if (product.category !== (original.category ?? '')) {
+    if (!product.category.trim() || typeof product.categoryId !== 'string' || !product.categoryId || product.categoryId.includes('/')) {
+      throw new Error('Selecione uma categoria cadastrada.');
+    }
+    changes.category = product.category.trim();
+    changes.categoryId = product.categoryId;
+  }
+
+  const costPrice = product.costPrice ?? null;
+  if (costPrice !== (original.costPrice ?? null) || product.price !== original.price) {
+    changes.price = product.price;
+    if (costPrice !== null || original.costPrice != null) {
+      const profitPercentage = calculateProfitPercentage(costPrice, product.price);
+      if (profitPercentage === null) throw new Error('Confira os valores de custo e venda do produto.');
+      changes.costPrice = costPrice;
+      changes.profitPercentage = profitPercentage;
+    }
+  }
+
+  if ((product.photo || '') !== (original.photo || '')) {
+    validateProductPhoto(product.photo);
+    changes.photo = product.photo || undefined;
+  }
+
+  if (Object.keys(changes).length === 0) return;
+  const reference = doc(getProductsCollection(), original.id);
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists()) {
+      const error = new Error('Este produto não está mais disponível.');
+      error.code = 'product-not-found';
+      throw error;
+    }
+    const current = snapshot.data();
+    const fields = Object.entries(changes);
+    const conflict = fields.some(([field, value]) => current[field] !== value && current[field] !== original[field])
+      || ('price' in changes && !('costPrice' in changes)
+        && (current.costPrice !== original.costPrice || current.profitPercentage !== original.profitPercentage));
+    if (conflict) {
+      const error = new Error('Este produto foi atualizado por outra pessoa. Volte à lista e abra a edição novamente.');
+      error.code = 'product-edit-conflict';
+      throw error;
+    }
+
+    const patch = {};
+    for (const [field, value] of fields) {
+      if (current[field] === value) continue;
+      patch[field] = field === 'photo' && value === undefined ? deleteField() : value;
+    }
+    if (Object.keys(patch).length > 0) transaction.update(reference, patch);
   });
 }
 

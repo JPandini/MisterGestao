@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import Header from '../components/Header';
 import Button from '../components/Button';
-import { buscarOrcamento, cancelarOrcamento } from '../services/orcamentos';
+import { acompanharOrcamento, buscarOrcamento, cancelarOrcamento } from '../services/orcamentos';
 import { useAuth } from '../context/AuthContext';
 import { enviarPdfOrcamento } from '../utils/pdfOrcamento';
 import { statusOrcamento } from '../utils/orcamento';
@@ -63,25 +63,15 @@ export default function Orcamento({ route, navigation }) {
   }
 
   useEffect(() => {
-    if (!focada) return;
-    let aberta = true;
-
-    async function carregar() {
-      try {
-        const dados = await (id ? buscarOrcamento(id) : null);
-        if (!aberta) return;
+    if (!focada || !id) return;
+    return acompanharOrcamento(id,
+      (dados) => {
         setResultado({ id, orcamento: dados, mensagem: dados ? '' : 'Orçamento não encontrado.' });
-      } catch {
-        if (aberta) {
-          setResultado({ id, orcamento: null, mensagem: 'Não foi possível carregar o orçamento. Tente abrir novamente.' });
-        }
+      },
+      () => {
+        setResultado({ id, orcamento: null, mensagem: 'Não foi possível carregar o orçamento. Tente abrir novamente.' });
       }
-    }
-
-    carregar();
-
-    // Impede atualizar os dados depois de sair desta tela.
-    return () => { aberta = false; };
+    );
   }, [id, focada]);
 
   return (
@@ -92,7 +82,7 @@ export default function Orcamento({ route, navigation }) {
         <Button title="Voltar" variant="secondary" onPress={() => navigation.goBack()} disabled={cancelamentoAtual?.salvando} />
         <Text style={styles.titulo}>Orçamento</Text>
 
-        {mensagem ? <Text style={styles.texto}>{mensagem}</Text> : null}
+        {mensagem ? <Text style={styles.texto}>{id ? mensagem : 'Orçamento não encontrado.'}</Text> : null}
 
         {orcamento ? (
           <View style={styles.card}>
@@ -100,7 +90,11 @@ export default function Orcamento({ route, navigation }) {
             <Text style={styles.texto}>Número: {orcamento.id}</Text>
             <Text style={styles.nome}>{statusOrcamento(orcamento)}</Text>
             {orcamento.status === 'cancelled' ? (
-              <Text style={styles.erro}>Este orçamento foi cancelado e não pode ser convertido em venda.</Text>
+              <Text style={styles.erro}>
+                {orcamento.cancelledBy === 'system'
+                  ? 'Cancelado automaticamente após 8 dias em aberto.'
+                  : 'Este orçamento foi cancelado e não pode ser convertido em venda.'}
+              </Text>
             ) : null}
 
             <Text style={styles.nome}>{orcamento.cliente?.nome || 'Cliente não informado'}</Text>

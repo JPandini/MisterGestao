@@ -86,6 +86,12 @@ export async function buscarOrcamento(id) {
   return { ...document.data(), id: document.id };
 }
 
+export function acompanharOrcamento(id, onOrcamento, onError) {
+  return onSnapshot(doc(getOrcamentosCollection(), id), (document) => {
+    onOrcamento(document.exists() ? { ...document.data(), id: document.id } : null);
+  }, onError);
+}
+
 export async function cancelarOrcamento(id, userId) {
   if (!userId) throw new Error('Entre novamente para cancelar o orçamento.');
   if (!id) throw new Error('Orçamento não encontrado.');
