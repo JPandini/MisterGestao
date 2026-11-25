@@ -1,5 +1,55 @@
 # Firebase — configuração inicial
 
+## Publicação web em 22 de novembro de 2026
+
+A versão web atual foi publicada em [MisterGestão](https://mistergestao-5ebe1.web.app/). O pacote servido em produção foi comparado com o pacote gerado localmente. As regras e os índices do Firestore foram publicados no mesmo projeto. A API de faturamento confirmou que o projeto estava com faturamento desativado.
+
+Para atualizar a versão web a partir da pasta do app, com uma conta autorizada no Firebase CLI, gere o pacote e publique os alvos abaixo. O Firebase Hosting recebe os arquivos de `dist` do checkout local.
+
+```powershell
+npx expo export --platform web --output-dir dist
+npx firebase-tools deploy --only firestore:rules,firestore:indexes,hosting --project mistergestao-5ebe1
+```
+
+A função agendada de orçamentos continua pendente de ativação. O teste de produção com uma conta de atendente deve conferir login e permissões nas telas de produtos, orçamentos, vendas e Dashboard.
+
+## Edição de produtos
+
+Em **Produtos e estoque**, o botão **Editar** abre os dados já cadastrados. É possível editar nome, categoria, marca, medida, preço, custo, foto e estoque mínimo. Produtos antigos podem manter o custo vazio. O código permanece o mesmo ao mudar a categoria. O saldo é atualizado pelas movimentações de estoque.
+
+A gravação altera apenas os campos editados. Se outra pessoa alterou um desses campos desde a abertura, o app pede para reabrir o formulário. A edição depende da publicação das regras de produtos em `firestore.rules`.
+
+## Lembretes e cancelamento automático de orçamentos
+
+- A conta que criou o orçamento recebe lembretes no sino do app após 1, 5 e 7 dias completos desde a criação, enquanto o status no Firestore estiver em aberto. Tocar no aviso abre o detalhe e marca o aviso como lido. A validade comercial continua sendo usada para bloquear a venda quando vence.
+- A função `verificarPrazosOrcamentos` roda a cada 15 minutos, inclusive com o app fechado. Na primeira execução após completar 8 dias, ela registra o cancelamento automático no histórico. A transação preserva os itens, valores e estoque, e verifica se já existe uma venda. O Firestore bloqueia novas conversões a partir do limite de 8 dias.
+- Orçamentos existentes com data de criação entram na rotina. Em caso de atraso, o orçamento recebe apenas o lembrete mais recente aplicável ou é cancelado se já completou 8 dias. Registros antigos sem data de criação ficam fora da rotina.
+
+A publicação requer acesso ao projeto e o plano Blaze. O agendamento começa a processar também os orçamentos antigos assim que for publicado. Primeiro publique as regras e os índices e aguarde os dois índices ficarem ativos no Firestore. Em seguida, publique a função na pasta do app.
+
+```powershell
+npm --prefix functions ci
+npx firebase-tools deploy --only firestore:rules,firestore:indexes --project mistergestao-5ebe1
+npx firebase-tools deploy --only functions:verificarPrazosOrcamentos --project mistergestao-5ebe1
+```
+
+Para validar com dados de teste, execute o cenário abaixo na pasta do app.
+
+```powershell
+npx firebase-tools emulators:exec --only firestore --project demo-mistergestao --config firebase.emulators.json "node scripts/check-prazos.cjs"
+```
+
+### Avisos do celular
+
+Em uma versão instalada para Android ou iOS, o usuário abre o sino e toca em **Ativar avisos no celular**. Depois da permissão, os lembretes de 1, 5 e 7 dias também podem aparecer na tela bloqueada ou na central de notificações. Tocar no push abre os lembretes da conta. A mensagem na tela bloqueada mostra o prazo sem número do orçamento ou dados do cliente. O app tenta desvincular a instalação ao sair da conta. Um novo registro vincula a instalação a uma única conta.
+
+O agendamento do Firebase registra a notificação interna e enfileira o push na mesma transação. Cada envio acompanha os tickets e recibos do serviço Expo. Falhas transitórias são processadas novamente enquanto o aviso estiver atual, e tokens que o provedor informa como inválidos são removidos. Use uma versão instalada para testar o push em aparelho.
+
+1. Vincule a pasta do app ao projeto Expo existente com `npx eas-cli@latest init`. Na falta de um projeto vinculado, o comando oferece a criação. Se o CLI solicitar a alteração manual, salve o ID retornado em `expo.extra.eas.projectId` no `app.json`. Use os identificadores Android e iOS já adotados pelo app.
+2. Para Android, cadastre o pacote no Firebase e configure o `google-services.json` no ambiente de build do EAS, na variável de arquivo `GOOGLE_SERVICES_JSON`. É possível manter o arquivo local na raiz do app para builds locais. Configure a credencial FCM v1 no projeto Expo. Para iOS, configure as credenciais APNs. Use `npx eas-cli@latest credentials` para gerenciar as credenciais. [Configuração do Expo Push](https://docs.expo.dev/push-notifications/push-notifications-setup/) · [Credenciais FCM v1](https://docs.expo.dev/push-notifications/fcm-credentials/)
+3. Disponibilize no ambiente de build as variáveis públicas usadas pelo cliente Firebase. Se as imagens da marca não estiverem no checkout, o build usa os recursos padrão do Expo. Gere um build instalável com `npx eas-cli@latest build --profile preview --platform android` ou `--platform ios`.
+4. Depois de publicar o Firestore e a função agendada, ative os avisos no app instalado. Em um ambiente de teste, use um orçamento próximo de um marco e verifique o push com o app fechado.
+
 ## Produtos, condições do orçamento e vendas — 15/11/2026
 
 - O código de novos produtos é automático: três primeiras letras da categoria sem acentos, em maiúsculas, seguidas de sequência com pelo menos três dígitos (`Câmara de ar` → `CAM-001`). Categorias com menos de três letras completam o prefixo com `X`. Cada categoria tem contagem própria, inclusive quando duas categorias começam com as mesmas letras; nesse caso, o código visível pode coincidir entre categorias, enquanto o ID do produto permanece único.

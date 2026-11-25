@@ -1,9 +1,12 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useNotificacoes } from '../context/NotificacoesContext';
 
 export default function Header({ userName = 'Equipe', onSignOut, isSigningOut = false }) {
   const navigation = useNavigation();
+  const { notificacoes } = useNotificacoes();
+  const temNotificacoes = notificacoes.length > 0;
   const initials = (userName || 'JP').slice(0, 2).toUpperCase();
 
   function goHome() {
@@ -27,6 +30,15 @@ export default function Header({ userName = 'Equipe', onSignOut, isSigningOut = 
       </TouchableOpacity>
 
       <View style={styles.actions}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Notificacoes')}
+          accessibilityRole="button"
+          accessibilityLabel={temNotificacoes ? 'Notificações, há lembretes não lidos' : 'Notificações'}
+          style={styles.bellButton}
+        >
+          <Feather name="bell" size={20} color={temNotificacoes ? '#C94700' : '#626975'} />
+          {temNotificacoes ? <View style={styles.bellDot} /> : null}
+        </TouchableOpacity>
         {onSignOut ? (
           <TouchableOpacity
             onPress={onSignOut}
@@ -37,9 +49,7 @@ export default function Header({ userName = 'Equipe', onSignOut, isSigningOut = 
           >
             <Text style={styles.signOutText}>{isSigningOut ? 'Saindo...' : 'Sair'}</Text>
           </TouchableOpacity>
-        ) : (
-          <Feather name="bell" size={20} color="#626975" />
-        )}
+        ) : null}
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
@@ -64,6 +74,8 @@ const styles = StyleSheet.create({
   brandGestao: { fontSize: 17, fontWeight: '800', color: '#F45108', letterSpacing: -0.6 },
   subtitle: { fontSize: 9, color: '#7C818A', marginTop: 1 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  bellButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  bellDot: { position: 'absolute', top: 10, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: '#C94700' },
   signOutButton: { paddingHorizontal: 10, paddingVertical: 12 },
   signOutText: { fontSize: 12, fontWeight: '600', color: '#626975' },
   avatar: {

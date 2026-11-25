@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Button from '../components/Button';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { acompanharMovimentos, acompanharVendas } from '../services/vendas';
@@ -41,9 +42,13 @@ function agruparPorSemana(registros) {
 
 export default function Dashboard({ navigation }) {
   const { user } = useAuth();
+  const uid = user?.uid;
   const [vendas, setVendas] = useState([]);
   const [movimentos, setMovimentos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [carregandoMovimentos, setCarregandoMovimentos] = useState(true);
+  const [erroMovimentos, setErroMovimentos] = useState('');
+  const [tentativaMovimentos, setTentativaMovimentos] = useState(0);
 
   // Fica atualizando vendas e movimentos de estoque sozinho
   useEffect(() => {
@@ -57,13 +62,29 @@ export default function Dashboard({ navigation }) {
         setLoading(false);
       }
     );
-    const pararMovimentos = acompanharMovimentos(setMovimentos, (e) => console.error('Erro ao carregar estoque:', e));
-
-    return () => {
-      pararVendas();
-      pararMovimentos();
-    };
+    return pararVendas;
   }, []);
+
+  useEffect(() => {
+    if (!uid) return undefined;
+    return acompanharMovimentos((lista) => {
+      setMovimentos(lista);
+      setCarregandoMovimentos(false);
+      setErroMovimentos('');
+    }, (erro) => {
+      setMovimentos([]);
+      setCarregandoMovimentos(false);
+      setErroMovimentos(erro.code === 'permission-denied'
+        ? 'O Firebase recusou o acesso ao histórico de estoque. Peça a um administrador para conferir as permissões.'
+        : 'Não foi possível carregar o histórico de estoque. Confira a conexão e tente novamente.');
+    });
+  }, [uid, tentativaMovimentos]);
+
+  function recarregarMovimentos() {
+    setCarregandoMovimentos(true);
+    setErroMovimentos('');
+    setTentativaMovimentos((tentativa) => tentativa + 1);
+  }
 
   // Vendas: quantidade e total de cada semana
   const semanasVendas = agruparPorSemana(vendas).map((semana) => ({
@@ -120,7 +141,14 @@ export default function Dashboard({ navigation }) {
         ))}
 
         <Text style={styles.secao}>Estoque por semana</Text>
-        {!loading && semanasEstoque.length === 0 ? (
+        {carregandoMovimentos ? <ActivityIndicator color="#C94700" accessibilityLabel="Carregando estoque" /> : null}
+        {erroMovimentos ? (
+          <View style={styles.card}>
+            <Text style={styles.saida} accessibilityRole="alert">{erroMovimentos}</Text>
+            <Button title="Tentar novamente" variant="secondary" onPress={recarregarMovimentos} />
+          </View>
+        ) : null}
+        {!carregandoMovimentos && !erroMovimentos && semanasEstoque.length === 0 ? (
           <Text style={styles.vazio}>Não houve movimentação no estoque.</Text>
         ) : null}
         {semanasEstoque.map((semana) => (

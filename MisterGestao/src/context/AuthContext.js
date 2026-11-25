@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 import { auth } from '../services/auth';
+import { desvincularPushDoAparelho, retomarPushDaConta } from '../services/pushOrcamentos';
 
 const AuthContext = createContext(undefined);
 
@@ -29,7 +30,14 @@ export function AuthProvider({ children }) {
   async function logOut() {
     if (!auth) return;
 
-    await signOut(auth);
+    const uid = auth.currentUser?.uid;
+    await desvincularPushDoAparelho(uid);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      retomarPushDaConta(uid);
+      throw error;
+    }
   }
 
   return (

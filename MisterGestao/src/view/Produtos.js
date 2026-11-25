@@ -36,7 +36,7 @@ const matchesSearch = (product, query) => {
   );
 };
 
-function ProductCard({ product, onAdd, userId }) {
+function ProductCard({ product, onAdd, onEdit, userId }) {
   const stockLabel = isLowStock(product) ? 'Estoque baixo' : 'Em estoque';
   const [entradaAberta, setEntradaAberta] = useState(false);
   const [quantidade, setQuantidade] = useState('');
@@ -89,6 +89,16 @@ function ProductCard({ product, onAdd, userId }) {
           {stockLabel} · {product.stock} un.
         </Text>
         <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={onEdit}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Editar ${product.name}`}
+          >
+            <Feather name="edit-2" size={15} color="#626975" />
+            <Text style={styles.entradaText}>Editar</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.addButton} onPress={() => setEntradaAberta(!entradaAberta)} activeOpacity={0.7}>
             <Feather name="package" size={18} color="#626975" />
             <Text style={styles.entradaText}>Entrada</Text>
@@ -140,7 +150,7 @@ export default function MisterGestaoProdutos({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       <Header userName={userName} />
 
@@ -232,7 +242,13 @@ export default function MisterGestaoProdutos({ navigation }) {
         ) : products.length > 0 ? (
           <View style={styles.productList}>
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} onAdd={adicionar} userId={user?.uid} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAdd={adicionar}
+                onEdit={() => navigation.navigate('EditarProduto', { id: product.id })}
+                userId={user?.uid}
+              />
             ))}
           </View>
         ) : (
@@ -369,17 +385,18 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 8,
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
     borderTopColor: '#EFF0F2',
-    paddingVertical: 8,
-    paddingLeft: 8,
-    paddingRight: 46,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
   },
   stockText: { fontSize: 11, lineHeight: 15, fontWeight: '500', color: '#1C8856' },
-  addButton: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  addButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 3 },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
   entradaText: { fontSize: 13, lineHeight: 16, fontWeight: '600', color: '#626975' },
   entrada: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
   entradaInput: {
